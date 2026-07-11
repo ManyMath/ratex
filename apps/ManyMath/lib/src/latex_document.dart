@@ -86,20 +86,24 @@ const _mathEnvironments = {
 /// Parses [source] into document blocks. Lenient by construction: malformed
 /// input degrades to plain text rather than failing.
 List<DocBlock> parseLatexDocument(String source) {
-  var text = _stripComments(source);
+  // Normalize line endings first: CRLF/CR would defeat the blank-line
+  // paragraph detection below.
+  var text = _stripComments(
+    source.replaceAll('\r\n', '\n').replaceAll('\r', '\n'),
+  );
 
   final title = _argOf(text, r'\title');
   final author = _argOf(text, r'\author');
   final date = _argOf(text, r'\date');
 
-  // Work on the document body when a document environment is present.
+  // Work on the document body when a document environment is present. The
+  // end marker only counts after the begin marker (a stray earlier
+  // \end{document} must not produce an inverted range).
   final beginDoc = text.indexOf(r'\begin{document}');
   if (beginDoc >= 0) {
-    final endDoc = text.indexOf(r'\end{document}');
-    text = text.substring(
-      beginDoc + r'\begin{document}'.length,
-      endDoc >= 0 ? endDoc : text.length,
-    );
+    final bodyStart = beginDoc + r'\begin{document}'.length;
+    final endDoc = text.indexOf(r'\end{document}', bodyStart);
+    text = text.substring(bodyStart, endDoc >= 0 ? endDoc : text.length);
   }
 
   final blocks = <DocBlock>[];
@@ -123,6 +127,19 @@ List<DocBlock> parseLatexDocument(String source) {
       continue;
     }
 
+    // Escape pairs, consumed before any delimiter matching so that the
+    // second backslash of `\\[2pt]` never opens `\[` display math and an
+    // escaped dollar in `\$$x$` never opens `$$`. The pairs pass through
+    // verbatim; parseInline interprets them later.
+    if (text.startsWith(r'\\', i) ||
+        (text[i] == r'\' &&
+            i + 1 < text.length &&
+            r'$%&_{}#'.contains(text[i + 1]))) {
+      paragraph.write(text.substring(i, i + 2));
+      i += 2;
+      continue;
+    }
+
     // Display math: $$...$$ and \[...\].
     final dollars = _delimited(text, i, r'$$', r'$$');
     if (dollars != null) {
@@ -130,6 +147,18 @@ List<DocBlock> parseLatexDocument(String source) {
       blocks.add(DisplayMathBlock(dollars.$1.trim()));
       i = dollars.$2;
       continue;
+    }
+    // A single $ opens inline math; consume the whole span verbatim into
+    // the paragraph (parseInline interprets it later). Without this, the
+    // adjacent closers/openers in '$a$$b$' would read as a $$ display
+    // opener and swallow the rest of the document.
+    if (text.startsWith(r'$', i)) {
+      final inline = _delimited(text, i, r'$', r'$');
+      if (inline != null) {
+        paragraph.write(text.substring(i, inline.$2));
+        i = inline.$2;
+        continue;
+      }
     }
     final bracket = _delimited(text, i, r'\[', r'\]');
     if (bracket != null) {
@@ -143,11 +172,10 @@ List<DocBlock> parseLatexDocument(String source) {
     final env = RegExp(r'\\begin\{([a-zA-Z*]+)\}').matchAsPrefix(text, i);
     if (env != null) {
       final name = env.group(1)!;
-      final close = '\\end{$name}';
-      final end = text.indexOf(close, env.end);
+      final end = _matchingEnvEnd(text, name, env.end);
       if (end >= 0) {
         final body = text.substring(env.end, end);
-        final next = end + close.length;
+        final next = end + '\\end{$name}'.length;
         if (_mathEnvironments.contains(name)) {
           flushParagraph();
           blocks.add(DisplayMathBlock(text.substring(i, next).trim()));
@@ -156,9 +184,18 @@ List<DocBlock> parseLatexDocument(String source) {
         }
         if (name == 'itemize' || name == 'enumerate') {
           flushParagraph();
+          // \item only, not \itemsep and friends. Nested block content
+          // inside an item degrades to inline text (see parseInline), but
+          // the depth-aware end search above keeps it inside the item
+          // instead of leaking raw \end tokens into the page.
+          final segments = body.split(RegExp(r'\\item(?![a-zA-Z])'));
           final items = [
-            for (final item in body.split(r'\item'))
-              if (item.trim().isNotEmpty) parseInline(item.trim()),
+            // segments[0] precedes the first \item (typically spacing
+            // commands like \itemsep0pt) and is not a bullet.
+            for (final segment in segments.skip(1))
+              if (_stripItemLabel(segment).trim() case final trimmed
+                  when trimmed.isNotEmpty)
+                parseInline(trimmed),
           ];
           if (items.isNotEmpty) {
             blocks.add(ListBlock(ordered: name == 'enumerate', items: items));
@@ -241,9 +278,22 @@ List<DocInline> parseInline(
       flushRun();
       spans.add(const TextRun('\n'));
       i += 2;
+      // Swallow the optional length argument of a line break (`\\[2pt]`)
+      // instead of rendering "[2pt]" as text.
+      final length = RegExp(r'\[[^\]\n]*\]').matchAsPrefix(source, i);
+      if (length != null) i = length.end;
       continue;
     }
 
+    // Display math reaching inline context (e.g. inside a list item)
+    // degrades to inline math rather than leaking stray dollar signs.
+    final doubleDollar = _delimited(source, i, r'$$', r'$$');
+    if (doubleDollar != null && doubleDollar.$1.trim().isNotEmpty) {
+      flushRun();
+      spans.add(InlineMath(doubleDollar.$1.trim()));
+      i = doubleDollar.$2;
+      continue;
+    }
     final dollar = _delimited(source, i, r'$', r'$');
     if (dollar != null && dollar.$1.trim().isNotEmpty) {
       flushRun();
@@ -256,6 +306,15 @@ List<DocInline> parseInline(
       flushRun();
       spans.add(InlineMath(paren.$1.trim()));
       i = paren.$2;
+      continue;
+    }
+    // \[...\] display math reaching inline context degrades to inline math
+    // too, instead of leaking raw LaTeX.
+    final bracket = _delimited(source, i, r'\[', r'\]');
+    if (bracket != null && bracket.$1.trim().isNotEmpty) {
+      flushRun();
+      spans.add(InlineMath(bracket.$1.trim()));
+      i = bracket.$2;
       continue;
     }
 
@@ -290,18 +349,59 @@ List<DocInline> parseInline(
   return spans;
 }
 
-/// Cuts each line at its first unescaped `%`.
-String _stripComments(String source) => source
-    .split('\n')
-    .map((line) {
-      for (var i = 0; i < line.length; i++) {
-        if (line[i] == '%' && (i == 0 || line[i - 1] != r'\')) {
-          return line.substring(0, i);
-        }
+/// Index of the `\end{name}` matching the `\begin{name}` whose body starts
+/// at [from], skipping over same-name nested environments; -1 when
+/// unterminated.
+int _matchingEnvEnd(String text, String name, int from) {
+  final open = '\\begin{$name}';
+  final close = '\\end{$name}';
+  var depth = 1;
+  var i = from;
+  while (i < text.length) {
+    if (text.startsWith(close, i)) {
+      depth--;
+      if (depth == 0) return i;
+      i += close.length;
+    } else if (text.startsWith(open, i)) {
+      depth++;
+      i += open.length;
+    } else {
+      i++;
+    }
+  }
+  return -1;
+}
+
+/// Cuts each line at its first unescaped `%` (escaped means preceded by an
+/// odd number of backslashes, `\\%` IS a comment, after a line break).
+/// A line that was only a comment vanishes entirely, newline included, so
+/// it cannot fake the blank line that separates paragraphs (TeX's `%` eats
+/// the newline too).
+String _stripComments(String source) {
+  final out = StringBuffer();
+  var first = true;
+  for (final line in source.split('\n')) {
+    var cut = -1;
+    for (var i = 0; i < line.length; i++) {
+      if (line[i] != '%') continue;
+      var backslashes = 0;
+      while (i - 1 - backslashes >= 0 && line[i - 1 - backslashes] == r'\') {
+        backslashes++;
       }
-      return line;
-    })
-    .join('\n');
+      if (backslashes.isEven) {
+        cut = i;
+        break;
+      }
+    }
+    final stripped = cut < 0 ? line : line.substring(0, cut);
+    final commentOnly = cut >= 0 && stripped.trim().isEmpty;
+    if (commentOnly) continue;
+    if (!first) out.write('\n');
+    first = false;
+    out.write(stripped);
+  }
+  return out.toString();
+}
 
 /// When [text] starts with [open] at [at], returns the content up to the
 /// matching [close] and the index just past it.
@@ -339,9 +439,21 @@ String _stripComments(String source) => source
   return null;
 }
 
-/// First `\command{...}` argument in [text], or null.
+/// Drops an `\item[label]` optional argument from the start of an item
+/// segment.
+String _stripItemLabel(String segment) {
+  final trimmed = segment.trimLeft();
+  if (!trimmed.startsWith('[')) return segment;
+  final close = trimmed.indexOf(']');
+  return close < 0 ? segment : trimmed.substring(close + 1);
+}
+
+/// First `\command{...}` argument in [text] (whitespace allowed before the
+/// brace, and `\command` must not merely prefix a longer command), or null.
 String? _argOf(String text, String command) {
-  final at = text.indexOf('$command{');
-  if (at < 0) return null;
-  return _balancedArg(text, at + command.length)?.$1;
+  final match = RegExp(
+    '${RegExp.escape(command)}(?![a-zA-Z])\\s*\\{',
+  ).firstMatch(text);
+  if (match == null) return null;
+  return _balancedArg(text, match.end - 1)?.$1;
 }

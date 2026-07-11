@@ -98,6 +98,163 @@ Ignored trailer.
       expect(text, contains('50% of it'));
     });
 
+    // Regression tests for review findings (each was a reproduced bug).
+
+    test(r'\end{document} before \begin{document} does not crash', () {
+      final blocks = parseLatexDocument(r'\end{document}\begin{document}hello');
+      final paragraph = blocks.whereType<ParagraphBlock>().single;
+      expect((paragraph.spans.single as TextRun).text, 'hello');
+    });
+
+    test(r'\\[2pt] line breaks do not open display math', () {
+      final blocks = parseLatexDocument(
+        'Line one \\\\[2pt]\nLine two\n\n\\[ x^2 \\]',
+      );
+      expect(blocks.whereType<DisplayMathBlock>().single.latex, 'x^2');
+      final text = blocks
+          .whereType<ParagraphBlock>()
+          .expand((p) => p.spans)
+          .whereType<TextRun>()
+          .map((s) => s.text)
+          .join();
+      expect(text, contains('Line two'));
+      expect(text, isNot(contains('2pt')));
+    });
+
+    test(r'escaped \$ does not open $$ display math', () {
+      final blocks = parseLatexDocument(
+        'It costs \\\$\$x\$ dollars.\n\n\$\$ y = 2 \$\$',
+      );
+      expect(blocks.whereType<DisplayMathBlock>().single.latex, 'y = 2');
+      final first = blocks.first as ParagraphBlock;
+      expect(first.spans.whereType<InlineMath>().single.latex, 'x');
+      final text = first.spans.whereType<TextRun>().map((s) => s.text).join();
+      expect(text, contains(r'$'));
+      expect(text, contains('dollars.'));
+    });
+
+    test('a comment-only line does not split the paragraph', () {
+      final blocks = parseLatexDocument(
+        'first half of sentence\n% a comment line\nsecond half',
+      );
+      expect(blocks.whereType<ParagraphBlock>(), hasLength(1));
+    });
+
+    test(r'\\% is a comment, not an escaped percent', () {
+      final blocks = parseLatexDocument('break \\\\% gone\nnext');
+      final text = blocks
+          .whereType<ParagraphBlock>()
+          .expand((p) => p.spans)
+          .whereType<TextRun>()
+          .map((s) => s.text)
+          .join();
+      expect(text, isNot(contains('gone')));
+      expect(text, contains('next'));
+    });
+
+    test('nested itemize stays inside the outer list', () {
+      // Nested lists are out of scope (their source degrades to item text),
+      // but they must not truncate the outer environment: outer2 stays a
+      // bullet and no raw tokens leak out of the list into paragraphs.
+      final blocks = parseLatexDocument(
+        r'\begin{itemize}\item outer'
+        r'\begin{itemize}\item inner\end{itemize}'
+        r'\item outer2\end{itemize}',
+      );
+      final list = blocks.whereType<ListBlock>().single;
+      final allText = list.items
+          .expand((item) => item)
+          .whereType<TextRun>()
+          .map((s) => s.text)
+          .join(' ');
+      expect(allText, contains('outer2'));
+      expect(
+        blocks.whereType<ParagraphBlock>(),
+        isEmpty,
+        reason: 'nothing may leak out of the list',
+      );
+    });
+
+    test(r'\itemsep is not an item boundary', () {
+      final blocks = parseLatexDocument(
+        '\\begin{itemize}\\itemsep0pt\n\\item only one\\end{itemize}',
+      );
+      final list = blocks.whereType<ListBlock>().single;
+      // The \itemsep prefix survives as (degraded) text, but must not
+      // create a bogus extra bullet beyond it.
+      final bulletsWithContent = list.items
+          .where(
+            (item) => item.whereType<TextRun>().any(
+              (s) => s.text.contains('only one'),
+            ),
+          )
+          .toList();
+      expect(bulletsWithContent, hasLength(1));
+    });
+
+    test('display math inside a list item degrades to inline math', () {
+      final blocks = parseLatexDocument(
+        r'\begin{itemize}\item The identity $$e^{i\pi} = -1$$ holds'
+        r'\end{itemize}',
+      );
+      final item = blocks.whereType<ListBlock>().single.items.single;
+      expect(item.whereType<InlineMath>().single.latex, r'e^{i\pi} = -1');
+      final text = item.whereType<TextRun>().map((s) => s.text).join();
+      expect(text, isNot(contains(r'$')));
+    });
+
+    test(r'adjacent inline maths $a$$b$ are not display math', () {
+      final blocks = parseLatexDocument(
+        'sum of \$a\$\$b\$ terms\n\n\$\$ x \$\$',
+      );
+      expect(blocks.whereType<DisplayMathBlock>().single.latex, 'x');
+      final first = blocks.first as ParagraphBlock;
+      expect(first.spans.whereType<InlineMath>().map((m) => m.latex), [
+        'a',
+        'b',
+      ]);
+    });
+
+    test('content before the first \\item is not a bullet', () {
+      final blocks = parseLatexDocument(
+        '\\begin{itemize}\\itemsep0pt\n\\item real\\end{itemize}',
+      );
+      final list = blocks.whereType<ListBlock>().single;
+      expect(list.items, hasLength(1));
+      expect((list.items.single.single as TextRun).text, 'real');
+    });
+
+    test(r'\item[label] optional arguments are stripped', () {
+      final blocks = parseLatexDocument(
+        r'\begin{itemize}\item[(a)] first\item second\end{itemize}',
+      );
+      final list = blocks.whereType<ListBlock>().single;
+      expect((list.items[0].single as TextRun).text, 'first');
+      expect((list.items[1].single as TextRun).text, 'second');
+    });
+
+    test(r'\[..\] inside a list item degrades to inline math', () {
+      final blocks = parseLatexDocument(
+        r'\begin{itemize}\item yields \[ \zeta(2) \] here\end{itemize}',
+      );
+      final item = blocks.whereType<ListBlock>().single.items.single;
+      expect(item.whereType<InlineMath>().single.latex, r'\zeta(2)');
+    });
+
+    test(r'\title {X} with whitespace before the brace still parses', () {
+      final blocks = parseLatexDocument(
+        '\\title {Spaced}\n\\begin{document}\\maketitle\\end{document}',
+      );
+      expect(blocks.whereType<TitleBlock>().single.title, 'Spaced');
+    });
+
+    test('CRLF documents still get paragraph breaks', () {
+      final blocks = parseLatexDocument(
+        'para one\r\n\r\npara two\r\n\r\npara three',
+      );
+      expect(blocks.whereType<ParagraphBlock>(), hasLength(3));
+    });
+
     test('never throws on malformed input', () {
       for (final source in [
         r'\begin{align} unterminated',
