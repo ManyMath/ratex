@@ -1,0 +1,5 @@
+# Build with the installed `stable` toolchain (RaTeX's MSRV is 1.70+, and the
+# wasm32-unknown-unknown target must be installed for web builds:
+# `rustup target add wasm32-unknown-unknown`).
+[toolchain]
+channel = "stable"

@@ -1,0 +1,61 @@
+name: ratex_workspace
+publish_to: none
+
+# Dart pub workspace root. Member packages set `resolution: workspace` and
+# share a single lockfile. Melos drives multi-package tooling on top of this.
+environment:
+  sdk: ^3.10.0
+
+workspace:
+  - packages/ratex
+  - packages/ratex_flutter
+  - packages/ratex_flutter/example
+  - apps/ManyMath
+
+dev_dependencies:
+  melos: ^7.0.0
+
+# Melos 7 reads its configuration from here (the pub-workspace root). Scripts
+# mirror CI and use the right tool per package (dart vs flutter).
+melos:
+  name: ratex
+  scripts:
+    analyze:
+      description: Analyze all packages.
+      run: >-
+        dart analyze packages/ratex &&
+        flutter analyze packages/ratex_flutter &&
+        flutter analyze apps/ManyMath
+    format:
+      description: Check Dart formatting.
+      run: >-
+        dart format --output none --set-exit-if-changed
+        packages/ratex packages/ratex_flutter/lib packages/ratex_flutter/test
+        packages/ratex_flutter/example/lib apps/ManyMath/lib
+        apps/ManyMath/test
+    format:fix:
+      description: Apply Dart formatting.
+      run: >-
+        dart format
+        packages/ratex packages/ratex_flutter/lib packages/ratex_flutter/test
+        packages/ratex_flutter/example/lib apps/ManyMath/lib
+        apps/ManyMath/test
+    test:
+      description: Run Dart and Flutter tests.
+      run: >-
+        dart test packages/ratex &&
+        flutter test packages/ratex_flutter/test &&
+        flutter test apps/ManyMath/test
+    native:build:
+      description: Build the ratex_ffi shared library (for CLI/dev use).
+      # cd into the crate so its rust-toolchain.toml is honored.
+      run: cd native/ratex-ffi && cargo build --release
+    native:test:
+      description: Run the Rust crate tests.
+      run: cd native/ratex-ffi && cargo test
+    native:build:web:
+      description: >-
+        Build ratex_ffi for wasm32-unknown-unknown and copy the .wasm where the
+        web examples expect it (pure-Dart web example, Flutter example, and
+        manymath assets).
+      run: bash tool/build_wasm.sh

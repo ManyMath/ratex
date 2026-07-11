@@ -1,0 +1,25 @@
+name: ratex
+description: >-
+  KaTeX-compatible math rendering for Dart and Flutter with the goal of no
+  additional system dependencies. Pure Dart (no Flutter dependency); parses
+  and lays out LaTeX with the Rust RaTeX engine over FFI on native platforms
+  and WebAssembly on the web.
+version: 0.0.1
+repository: https://github.com/ManyMath/ratex
+issue_tracker: https://github.com/ManyMath/ratex/issues
+topics:
+  - latex
+  - katex
+  - math
+  - rendering
+  - ffi
+
+environment:
+  sdk: ^3.10.0
+
+resolution: workspace
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0
+  web: ^1.1.0
