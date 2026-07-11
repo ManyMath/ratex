@@ -24,8 +24,8 @@ target/
 # Built wasm + compiled web example artifacts (rebuild with `melos run native:build:web`)
 packages/ratex/example/web/ratex_ffi.wasm
 packages/ratex/example/web/main.dart.js*
-packages/ratex_flutter/example/assets/ratex_ffi.wasm
-apps/ManyMath/assets/ratex_ffi.wasm
+packages/ratex_flutter/example/web/ratex_ffi.wasm
+apps/ManyMath/web/ratex_ffi.wasm
 
 # OS / editor
 .DS_Store

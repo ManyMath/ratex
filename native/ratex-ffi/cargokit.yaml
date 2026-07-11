@@ -1,0 +1,11 @@
+# cargokit configuration for the ratex_ffi crate.
+#
+# Precompiled binaries let consumers build ratex_flutter without Rust: cargokit
+# downloads a signed prebuilt library matching the crate hash instead of running
+# cargo. The public key below verifies those downloads; the matching private key
+# signs them in CI (stored as the CARGOKIT_PRIVATE_KEY secret - see
+# .github/workflows/precompile.yml; a local copy lives in the gitignored
+# .cargokit_private_key at the repo root). Generated with `build_tool gen-key`.
+precompiled_binaries:
+  url_prefix: https://github.com/ManyMath/ratex/releases/download/precompiled_
+  public_key: cb27feecd1bb84bc9b0058aa03e09eeab0acdd9a095adceddb2846950162f19f

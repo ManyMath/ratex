@@ -19,6 +19,7 @@ import 'options.dart';
 /// paint code).
 abstract final class Ratex {
   static final List<RatexBackend> _backends = [];
+  static final Map<RatexBackend, Future<void>> _initFutures = Map.identity();
   static final Set<RatexBackend> _initialized = Set.identity();
   static RatexBackend? _active;
   static bool _defaultsRegistered = false;
@@ -90,13 +91,26 @@ abstract final class Ratex {
   }
 
   /// Selects and initializes the backend (loads the native library, or
-  /// fetches and instantiates the wasm binary). Idempotent; returns the
-  /// ready backend.
+  /// fetches and instantiates the wasm binary). Idempotent and safe to call
+  /// concurrently: overlapping callers share one initialization and none
+  /// proceeds until it completes. Returns the ready backend.
   static Future<RatexBackend> ensureInitialized() async {
     final b = backend;
-    if (_initialized.add(b)) {
-      await b.initialize();
+    var initialization = _initFutures[b];
+    if (initialization == null) {
+      initialization = () async {
+        try {
+          await b.initialize();
+          _initialized.add(b);
+        } catch (_) {
+          // Let a later call retry (e.g. after fixing Ratex.wasmUrl).
+          _initFutures.remove(b);
+          rethrow;
+        }
+      }();
+      _initFutures[b] = initialization;
     }
+    await initialization;
     return b;
   }
 
@@ -154,6 +168,7 @@ abstract final class Ratex {
     // while we await the disposals.
     final toDispose = List.of(_initialized);
     _initialized.clear();
+    _initFutures.clear();
     _backends.clear();
     _active = null;
     _defaultsRegistered = false;

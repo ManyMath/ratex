@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ratex/ratex.dart';
 import 'package:test/test.dart';
 
@@ -37,6 +39,40 @@ class _FakeBackend implements RatexBackend {
     String latex, {
     RatexOptions options = const RatexOptions(),
   }) => '<svg xmlns="http://www.w3.org/2000/svg"/>';
+}
+
+/// A backend whose [initialize] blocks until released, recording renders
+/// that arrive too early.
+class _SlowBackend extends _FakeBackend {
+  _SlowBackend(this._initialize) : super('slow', priority: 5000);
+
+  final Future<void> Function() _initialize;
+  bool _ready = false;
+  int rendersBeforeReady = 0;
+
+  @override
+  Future<void> initialize() async {
+    await _initialize();
+    _ready = true;
+  }
+
+  @override
+  DisplayList renderDisplayList(
+    String latex, {
+    RatexOptions options = const RatexOptions(),
+  }) {
+    if (!_ready) rendersBeforeReady++;
+    return super.renderDisplayList(latex, options: options);
+  }
+
+  @override
+  String renderSvg(
+    String latex, {
+    RatexOptions options = const RatexOptions(),
+  }) {
+    if (!_ready) rendersBeforeReady++;
+    return super.renderSvg(latex, options: options);
+  }
 }
 
 void main() {
@@ -266,6 +302,30 @@ void main() {
         () => Ratex.useBackend('nope'),
         throwsA(isA<NoBackendAvailableException>()),
       );
+    });
+
+    test('concurrent callers all wait for one slow initialization', () async {
+      // Regression test: on the web, initialize() fetches the wasm binary,
+      // so a widget rendering while another caller is still initializing
+      // must wait rather than hit an uninitialized backend.
+      final gate = Completer<void>();
+      var initCount = 0;
+      final slow = _SlowBackend(() async {
+        initCount++;
+        await gate.future;
+      });
+      Ratex.registerBackend(slow, makeActive: true);
+      final renders = Future.wait([
+        Ratex.renderDisplayList('a'),
+        Ratex.renderDisplayList('b'),
+        Ratex.renderSvg('c').then((_) {}),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      expect(slow.rendersBeforeReady, 0);
+      gate.complete();
+      await renders;
+      expect(initCount, 1);
+      expect(slow.rendersBeforeReady, 0);
     });
 
     test('ensureInitialized initializes once', () async {

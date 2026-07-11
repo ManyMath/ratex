@@ -31,14 +31,16 @@ melos:
       run: >-
         dart format --output none --set-exit-if-changed
         packages/ratex packages/ratex_flutter/lib packages/ratex_flutter/test
-        packages/ratex_flutter/example/lib apps/ManyMath/lib
+        packages/ratex_flutter/example/lib packages/ratex_flutter/example/test
+        apps/ManyMath/lib
         apps/ManyMath/test
     format:fix:
       description: Apply Dart formatting.
       run: >-
         dart format
         packages/ratex packages/ratex_flutter/lib packages/ratex_flutter/test
-        packages/ratex_flutter/example/lib apps/ManyMath/lib
+        packages/ratex_flutter/example/lib packages/ratex_flutter/example/test
+        apps/ManyMath/lib
         apps/ManyMath/test
     test:
       description: Run Dart and Flutter tests.

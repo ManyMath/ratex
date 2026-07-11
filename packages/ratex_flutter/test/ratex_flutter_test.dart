@@ -1,0 +1,246 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:ratex_flutter/ratex_flutter.dart';
+
+/// A backend that returns a canned display list and records the options it
+/// was called with, no native library involved.
+class _FakeBackend implements RatexBackend {
+  RatexOptions? lastOptions;
+  String? lastLatex;
+  bool initialized = false;
+
+  static const _list = DisplayList(
+    items: [
+      GlyphPathItem(
+        x: 0,
+        y: 1,
+        color: RatexColor.black,
+        scale: 1,
+        font: 'Math-Italic',
+        charCode: 0x78,
+      ),
+      LineItem(
+        x: 0,
+        y: 1.2,
+        color: RatexColor.black,
+        width: 2,
+        thickness: 0.05,
+      ),
+    ],
+    width: 2,
+    height: 1,
+    depth: 0.5,
+  );
+
+  @override
+  String get name => 'fake';
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  int get priority => 10000;
+
+  @override
+  Future<void> initialize() async => initialized = true;
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  String get engineVersion => '0.0.0-fake';
+
+  @override
+  DisplayList renderDisplayList(
+    String latex, {
+    RatexOptions options = const RatexOptions(),
+  }) {
+    lastLatex = latex;
+    lastOptions = options;
+    if (latex.contains(r'\bad')) {
+      throw const RatexParseException(
+        'Undefined control sequence: \\bad',
+        start: 0,
+        end: 4,
+      );
+    }
+    return _list;
+  }
+
+  @override
+  String renderSvg(
+    String latex, {
+    RatexOptions options = const RatexOptions(),
+  }) => '<svg xmlns="http://www.w3.org/2000/svg"/>';
+}
+
+void main() {
+  late _FakeBackend fake;
+
+  setUp(() async {
+    await Ratex.reset();
+    fake = _FakeBackend();
+    Ratex.registerBackend(fake, makeActive: true);
+  });
+
+  tearDown(Ratex.reset);
+
+  group('RatexFlutter.ensureInitialized', () {
+    test('initializes and reports the backend name', () async {
+      expect(await RatexFlutter.ensureInitialized(), 'fake');
+      expect(fake.initialized, isTrue);
+    });
+  });
+
+  group('RatexMath', () {
+    testWidgets('renders a formula as a sized CustomPaint', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Center(child: RatexMath('x', fontSize: 20))),
+      );
+      await tester.pumpAndSettle();
+
+      expect(fake.lastLatex, 'x');
+      final paint = find.byType(CustomPaint).last;
+      expect(paint, findsOneWidget);
+      final box = tester.getSize(
+        find.ancestor(of: paint, matching: find.byType(SizedBox)).first,
+      );
+      // width 2em * 20px, height (1 + 0.5)em * 20px.
+      expect(box.width, 40);
+      expect(box.height, 30);
+    });
+
+    testWidgets('passes displayMode and inherited color to the engine', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: DefaultTextStyle(
+            style: TextStyle(color: Color(0xffff0000)),
+            child: RatexMath('x', displayMode: false),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(fake.lastOptions?.displayMode, isFalse);
+      expect(fake.lastOptions?.color, '#ff0000ff');
+    });
+
+    testWidgets('re-renders when the formula changes', (tester) async {
+      Widget app(String latex) =>
+          MaterialApp(home: Center(child: RatexMath(latex)));
+      await tester.pumpWidget(app('x'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(app('y'));
+      await tester.pumpAndSettle();
+      expect(fake.lastLatex, 'y');
+    });
+
+    testWidgets('shows the default error presentation for parse errors', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Center(child: RatexMath(r'\bad{'))),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Undefined control sequence'), findsOneWidget);
+    });
+
+    testWidgets('uses a custom errorBuilder when provided', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RatexMath(
+            r'\bad{',
+            errorBuilder: (context, error) => Text('custom: ${error.message}'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('custom: Undefined'), findsOneWidget);
+    });
+  });
+
+  group('RatexPainter', () {
+    testWidgets('paints a display list without errors', (tester) async {
+      final painter = RatexPainter(
+        DisplayList.fromJson({
+          'width': 3.0,
+          'height': 1.0,
+          'depth': 0.2,
+          'items': [
+            {
+              'type': 'GlyphPath',
+              'x': 0.0,
+              'y': 1.0,
+              'scale': 1.0,
+              'font': 'Main-Regular',
+              'char_code': 0x2211,
+              'color': {'r': 0, 'g': 0, 'b': 0, 'a': 1},
+            },
+            {
+              'type': 'Line',
+              'x': 0.0,
+              'y': 1.1,
+              'width': 3.0,
+              'thickness': 0.04,
+              'dashed': true,
+              'color': {'r': 0, 'g': 0, 'b': 0, 'a': 1},
+            },
+            {
+              'type': 'Rect',
+              'x': 1.0,
+              'y': 0.0,
+              'width': 0.5,
+              'height': 0.5,
+              'color': {'r': 1, 'g': 0, 'b': 0, 'a': 1},
+            },
+            {
+              'type': 'Path',
+              'x': 0.2,
+              'y': 0.2,
+              'fill': false,
+              'commands': [
+                {'type': 'MoveTo', 'x': 0.0, 'y': 0.0},
+                {'type': 'LineTo', 'x': 1.0, 'y': 0.0},
+                {'type': 'QuadTo', 'x1': 1.5, 'y1': 0.5, 'x': 1.0, 'y': 1.0},
+                {
+                  'type': 'CubicTo',
+                  'x1': 0.6,
+                  'y1': 1.2,
+                  'x2': 0.3,
+                  'y2': 1.2,
+                  'x': 0.0,
+                  'y': 1.0,
+                },
+                {'type': 'Close'},
+              ],
+              'color': {'r': 0, 'g': 0, 'b': 1, 'a': 1},
+            },
+          ],
+        }),
+        fontSize: 24,
+      );
+
+      expect(painter.widthPx, 72);
+      expect(painter.totalHeightPx, closeTo(28.8, 1e-9));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CustomPaint(
+            painter: painter,
+            size: Size(painter.widthPx, painter.totalHeightPx),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    test('shouldRepaint keys on list identity and font size', () {
+      const list = DisplayList(items: [], width: 1, height: 1, depth: 0);
+      final a = RatexPainter(list, fontSize: 20);
+      expect(a.shouldRepaint(RatexPainter(list, fontSize: 20)), isFalse);
+      expect(a.shouldRepaint(RatexPainter(list, fontSize: 24)), isTrue);
+    });
+  });
+}

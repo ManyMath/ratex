@@ -15,10 +15,13 @@ fi
 
 (cd "$crate" && cargo build --release --target wasm32-unknown-unknown)
 
+# The Flutter apps serve the binary from their web/ directory (everything in
+# web/ ships verbatim with a Flutter web build), matching the default
+# Ratex.wasmUrl of 'ratex_ffi.wasm'; native builds are unaffected.
 destinations=(
   "$root/packages/ratex/example/web/ratex_ffi.wasm"
-  "$root/packages/ratex_flutter/example/assets/ratex_ffi.wasm"
-  "$root/apps/ManyMath/assets/ratex_ffi.wasm"
+  "$root/packages/ratex_flutter/example/web/ratex_ffi.wasm"
+  "$root/apps/ManyMath/web/ratex_ffi.wasm"
 )
 for dest in "${destinations[@]}"; do
   mkdir -p "$(dirname "$dest")"
