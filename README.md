@@ -18,7 +18,7 @@ This is a [melos](https://melos.invertase.dev) monorepo:
 | [`packages/ratex`](packages/ratex) | Pure Dart (no Flutter); works in CLI tools and browsers. Renders LaTeX to display lists and self-contained SVG over `dart:ffi` natively and WebAssembly on the web, with a pluggable backend registry. |
 | [`packages/ratex_flutter`](packages/ratex_flutter) | Flutter plugin. Builds the native library automatically (via cargokit), bundles the KaTeX fonts, provides the `RatexMath` widget and `RatexPainter`, and re-exports the `ratex` API. |
 | [`native/ratex-ffi`](native/ratex-ffi) | Rust crate (the portable C ABI behind both backends). One `(pointer, length)`-based ABI compiled as cdylib/staticlib for FFI and as wasm32-unknown-unknown for the web, no wasm-bindgen glue. |
-| [`apps/ManyMath`](apps/ManyMath) | A minimal LaTeX editor: plaintext LaTeX in, rendered document out, on demand. No accounts or persistence, the rendering core of ManyMath.com working end to end. |
+| [`apps/ratex_example`](apps/ratex_example) | Minimal cross-platform Flutter application demonstrating one `RatexMath` expression without product state or external design-system dependencies. |
 
 ## Quick start (Dart CLI)
 
@@ -60,8 +60,8 @@ python3 -m http.server -d packages/ratex/example/web 8080
 cd packages/ratex_flutter/example && flutter run          # native
 cd packages/ratex_flutter/example && flutter run -d chrome # web
 
-# The LaTeX editor.
-cd apps/ManyMath && flutter run -d chrome
+# Minimal application integration.
+cd apps/ratex_example && flutter run -d chrome
 ```
 
 ## Status
@@ -76,7 +76,7 @@ cd apps/ManyMath && flutter run -d chrome
 | iOS | Expected to work (pure-Rust engine; cargokit wiring in place) |
 
 See [ROADMAP.md](ROADMAP.md) for what's next (isolate offload, PNG/PDF
-export, precompiled binary releases, ManyMath.com integration).
+export, precompiled binary releases, and upstream engine integration).
 
 ## Development
 
