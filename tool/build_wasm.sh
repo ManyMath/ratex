@@ -21,7 +21,7 @@ fi
 destinations=(
   "$root/packages/ratex/example/web/ratex_ffi.wasm"
   "$root/packages/ratex_flutter/example/web/ratex_ffi.wasm"
-  "$root/apps/ManyMath/web/ratex_ffi.wasm"
+  "$root/apps/ratex_example/web/ratex_ffi.wasm"
 )
 for dest in "${destinations[@]}"; do
   mkdir -p "$(dirname "$dest")"

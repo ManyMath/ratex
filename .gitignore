@@ -25,7 +25,7 @@ target/
 packages/ratex/example/web/ratex_ffi.wasm
 packages/ratex/example/web/main.dart.js*
 packages/ratex_flutter/example/web/ratex_ffi.wasm
-apps/ManyMath/web/ratex_ffi.wasm
+apps/ratex_example/web/ratex_ffi.wasm
 
 # OS / editor
 .DS_Store

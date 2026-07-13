@@ -10,7 +10,7 @@ workspace:
   - packages/ratex
   - packages/ratex_flutter
   - packages/ratex_flutter/example
-  - apps/ManyMath
+  - apps/ratex_example
 
 dev_dependencies:
   melos: ^7.0.0
@@ -25,29 +25,29 @@ melos:
       run: >-
         dart analyze packages/ratex &&
         flutter analyze packages/ratex_flutter &&
-        flutter analyze apps/ManyMath
+        flutter analyze apps/ratex_example
     format:
       description: Check Dart formatting.
       run: >-
         dart format --output none --set-exit-if-changed
         packages/ratex packages/ratex_flutter/lib packages/ratex_flutter/test
         packages/ratex_flutter/example/lib packages/ratex_flutter/example/test
-        apps/ManyMath/lib
-        apps/ManyMath/test
+        apps/ratex_example/lib
+        apps/ratex_example/test
     format:fix:
       description: Apply Dart formatting.
       run: >-
         dart format
         packages/ratex packages/ratex_flutter/lib packages/ratex_flutter/test
         packages/ratex_flutter/example/lib packages/ratex_flutter/example/test
-        apps/ManyMath/lib
-        apps/ManyMath/test
+        apps/ratex_example/lib
+        apps/ratex_example/test
     test:
       description: Run Dart and Flutter tests.
       run: >-
         dart test packages/ratex &&
         flutter test packages/ratex_flutter/test &&
-        flutter test apps/ManyMath/test
+        flutter test apps/ratex_example/test
     native:build:
       description: Build the ratex_ffi shared library (for CLI/dev use).
       # cd into the crate so its rust-toolchain.toml is honored.
@@ -58,6 +58,5 @@ melos:
     native:build:web:
       description: >-
         Build ratex_ffi for wasm32-unknown-unknown and copy the .wasm where the
-        web examples expect it (pure-Dart web example, Flutter example, and
-        manymath assets).
+        web examples expect it (pure-Dart, plugin, and application examples).
       run: bash tool/build_wasm.sh
