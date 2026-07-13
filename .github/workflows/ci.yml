@@ -5,7 +5,6 @@ on:
     branches: [main]
   pull_request:
 
-# Cancel superseded runs on the same ref.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -28,52 +27,43 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
-      # The crate must also compile for the web...
       - run: rustup target add wasm32-unknown-unknown
       - run: cargo check --target wasm32-unknown-unknown
-      # ...for Android...
       - run: rustup target add aarch64-linux-android
       - run: cargo check --target aarch64-linux-android
-      # ...and for Windows.
       - run: rustup target add x86_64-pc-windows-gnu
       - run: cargo check --target x86_64-pc-windows-gnu
 
   analyze-test:
-    name: Analyze & test (Dart/Flutter)
+    name: Analyze and test (Dart/Flutter)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      # The pub workspace includes Flutter packages, so resolve with Flutter.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/ratex-ffi
       - run: flutter pub get
       - name: Check formatting
         run: >-
           dart format --output none --set-exit-if-changed
           packages/ratex packages/ratex_flutter/lib packages/ratex_flutter/test
           packages/ratex_flutter/example/lib packages/ratex_flutter/example/test
-          apps/ManyMath/lib apps/ManyMath/test
+          apps/ratex_example/lib apps/ratex_example/test
       - run: dart analyze packages/ratex
       - run: flutter analyze packages/ratex_flutter
-      - run: flutter analyze apps/ManyMath
-      # Build the native lib so the FFI end-to-end tests run (they self-skip
-      # otherwise); the pure-Dart tests always run.
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: native/ratex-ffi
-      - run: cargo build --manifest-path native/ratex-ffi/Cargo.toml
+      - run: flutter analyze apps/ratex_example
+      - name: Build the native engine for tests
+        run: cargo build --manifest-path native/ratex-ffi/Cargo.toml
       - run: dart test packages/ratex
-      # Scope to the plugin's own tests (not the vendored cargokit tests).
       - run: flutter test packages/ratex_flutter/test
-      - run: flutter test apps/ManyMath/test
-      - name: Example tests
-        working-directory: packages/ratex_flutter/example
-        run: flutter test
-      # Verify the pure-Dart web example compiles to JavaScript (the wasm
-      # backend, no dart:ffi).
-      - run: >-
+      - run: flutter test packages/ratex_flutter/example
+      - run: flutter test apps/ratex_example/test
+      - name: Compile the pure-Dart web example
+        run: >-
           dart compile js packages/ratex/example/web/main.dart
           -o /tmp/ratex_web.js
 
@@ -83,8 +73,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # flags is explicit per entry: GHA's `&& '' ||` ternary idiom
-        # collapses empty strings to the || branch.
         include:
           - target: linux
             app: packages/ratex_flutter/example
@@ -93,8 +81,8 @@ jobs:
             app: packages/ratex_flutter/example
             flags: --debug
           - target: web
-            app: apps/ManyMath
-            flags: --release
+            app: apps/ratex_example
+            flags: --release --pwa-strategy=none
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -104,17 +92,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native/ratex-ffi
-      - name: Install Linux desktop build deps
+      - name: Install Linux desktop build dependencies
         if: matrix.target == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config
-      - name: Build the wasm engine
-        if: matrix.target == 'web'
-        run: |
-          rustup target add wasm32-unknown-unknown
-          bash tool/build_wasm.sh
       - run: flutter pub get
+      - name: Build the web engine
+        if: matrix.target == 'web'
+        run: ./tool/build_wasm.sh
       - name: Build ${{ matrix.target }}
         working-directory: ${{ matrix.app }}
         run: flutter build ${{ matrix.target }} ${{ matrix.flags }}
