@@ -24,6 +24,7 @@ class RatexMath extends StatefulWidget {
     this.color,
     this.errorBuilder,
     this.loadingBuilder,
+    this.semanticLabel,
   });
 
   /// The LaTeX source of one formula (math mode; environments like
@@ -48,6 +49,13 @@ class RatexMath extends StatefulWidget {
   /// formula on screen; afterwards rendering is synchronous).
   final WidgetBuilder? loadingBuilder;
 
+  /// A screen-reader-friendly description of the formula.
+  ///
+  /// When omitted, the label is derived from [latex], for example
+  /// `Mathematical expression: x^2 + y^2`. Loading and error states use the
+  /// same description while announcing their current status.
+  final String? semanticLabel;
+
   @override
   State<RatexMath> createState() => _RatexMathState();
 }
@@ -62,6 +70,44 @@ class _RatexMathState extends State<RatexMath> {
       widget.color ??
       DefaultTextStyle.of(context).style.color ??
       const Color(0xFF000000);
+
+  String get _normalizedLatex =>
+      widget.latex.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+  String get _semanticLabel {
+    final label = widget.semanticLabel;
+    if (label != null) return label;
+
+    final source = _normalizedLatex;
+    return source.isEmpty
+        ? 'Empty mathematical expression'
+        : 'Mathematical expression: $source';
+  }
+
+  String get _statusSemanticSubject {
+    final label = widget.semanticLabel;
+    if (label != null) return label;
+
+    final source = _normalizedLatex;
+    return source.isEmpty
+        ? 'empty mathematical expression'
+        : 'mathematical expression: $source';
+  }
+
+  Widget _semantics({
+    required String label,
+    required Widget child,
+    bool liveRegion = false,
+    bool excludeChildSemantics = false,
+  }) {
+    return Semantics(
+      container: true,
+      label: label,
+      liveRegion: liveRegion,
+      excludeSemantics: excludeChildSemantics,
+      child: child,
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -132,27 +178,43 @@ class _RatexMathState extends State<RatexMath> {
     final error = _error;
     if (error != null) {
       final builder = widget.errorBuilder;
-      if (builder != null) return builder(context, error);
-      return Text(
-        error.message,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.error,
-          fontSize: widget.fontSize * 0.6,
-          fontFamily: 'monospace',
-        ),
+      final presentation = builder != null
+          ? builder(context, error)
+          : Text(
+              error.message,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: widget.fontSize * 0.6,
+                fontFamily: 'monospace',
+              ),
+            );
+      return _semantics(
+        label: 'Could not render $_statusSemanticSubject. ${error.message}',
+        liveRegion: true,
+        excludeChildSemantics: builder == null,
+        child: presentation,
       );
     }
     final list = _displayList;
     if (list == null) {
       final builder = widget.loadingBuilder;
-      if (builder != null) return builder(context);
-      return SizedBox(height: widget.fontSize);
+      return _semantics(
+        label: 'Rendering $_statusSemanticSubject',
+        liveRegion: true,
+        excludeChildSemantics: builder == null,
+        child: builder != null
+            ? builder(context)
+            : SizedBox(height: widget.fontSize),
+      );
     }
     final painter = RatexPainter(list, fontSize: widget.fontSize);
-    return SizedBox(
-      width: painter.widthPx,
-      height: painter.totalHeightPx,
-      child: CustomPaint(painter: painter),
+    return _semantics(
+      label: _semanticLabel,
+      child: SizedBox(
+        width: painter.widthPx,
+        height: painter.totalHeightPx,
+        child: CustomPaint(painter: painter),
+      ),
     );
   }
 }

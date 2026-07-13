@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ratex_flutter/ratex_flutter.dart';
@@ -8,6 +10,7 @@ class _FakeBackend implements RatexBackend {
   RatexOptions? lastOptions;
   String? lastLatex;
   bool initialized = false;
+  Completer<void>? initializationGate;
 
   static const _list = DisplayList(
     items: [
@@ -42,7 +45,10 @@ class _FakeBackend implements RatexBackend {
   int get priority => 10000;
 
   @override
-  Future<void> initialize() async => initialized = true;
+  Future<void> initialize() async {
+    initialized = true;
+    await initializationGate?.future;
+  }
 
   @override
   Future<void> dispose() async {}
@@ -137,27 +143,131 @@ void main() {
       expect(fake.lastLatex, 'y');
     });
 
+    testWidgets('derives a concise semantic label from the LaTeX source', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Center(child: RatexMath('  x^2  +\n  y^2  ')),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getSemantics(find.byType(RatexMath)),
+          matchesSemantics(label: 'Mathematical expression: x^2 + y^2'),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('uses a caller-provided semantic label for the formula', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: RatexMath(
+              r'\frac{-b \pm \sqrt{b^2-4ac}}{2a}',
+              semanticLabel: 'The quadratic formula',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          tester.getSemantics(find.byType(RatexMath)),
+          matchesSemantics(label: 'The quadratic formula'),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('announces loading as a live region', (tester) async {
+      final semantics = tester.ensureSemantics();
+      fake.initializationGate = Completer<void>();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(home: RatexMath('x', semanticLabel: 'Variable x')),
+        );
+        await tester.pump();
+
+        expect(
+          tester.getSemantics(find.byType(RatexMath)),
+          matchesSemantics(label: 'Rendering Variable x', isLiveRegion: true),
+        );
+      } finally {
+        fake.initializationGate!.complete();
+        await tester.pumpAndSettle();
+        semantics.dispose();
+      }
+    });
+
     testWidgets('shows the default error presentation for parse errors', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        const MaterialApp(home: Center(child: RatexMath(r'\bad{'))),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Undefined control sequence'), findsOneWidget);
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          const MaterialApp(home: Center(child: RatexMath(r'\bad{'))),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Undefined control sequence'),
+          findsOneWidget,
+        );
+        expect(
+          tester.getSemantics(find.byType(RatexMath)),
+          matchesSemantics(
+            label:
+                r'Could not render mathematical expression: \bad{. '
+                r'Undefined control sequence: \bad',
+            isLiveRegion: true,
+          ),
+        );
+      } finally {
+        semantics.dispose();
+      }
     });
 
     testWidgets('uses a custom errorBuilder when provided', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: RatexMath(
-            r'\bad{',
-            errorBuilder: (context, error) => Text('custom: ${error.message}'),
+      final semantics = tester.ensureSemantics();
+      var retried = false;
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: RatexMath(
+              r'\bad{',
+              errorBuilder: (context, error) => TextButton(
+                onPressed: () => retried = true,
+                child: Text('Retry: ${error.message}'),
+              ),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('custom: Undefined'), findsOneWidget);
+        );
+        await tester.pumpAndSettle();
+
+        final retry = find.textContaining('Retry: Undefined');
+        expect(retry, findsOneWidget);
+        expect(
+          tester.getSemantics(retry),
+          isSemantics(
+            label: r'Retry: Undefined control sequence: \bad',
+            isButton: true,
+            isEnabled: true,
+            hasTapAction: true,
+          ),
+        );
+        await tester.tap(retry);
+        expect(retried, isTrue);
+      } finally {
+        semantics.dispose();
+      }
     });
   });
 
