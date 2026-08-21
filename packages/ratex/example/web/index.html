@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ratex web example</title>
+  <meta name="description" content="Render LaTeX mathematics as SVG in your browser with the RaTeX WebAssembly engine.">
+  <title>RaTeX web example</title>
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -21,6 +22,7 @@
     }
     #controls { margin: 0.5rem 0 1rem; display: flex; gap: 1rem; align-items: center; }
     #output {
+      border: 1px solid rgba(127, 140, 133, 0.45);
       border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
       border-radius: 0.5rem;
       padding: 1.5rem;
@@ -33,15 +35,15 @@
       color: black;
     }
     #status { min-height: 1.5rem; font-size: 0.9rem; opacity: 0.8; }
-    .error { color: #c0392b; }
+    .error { color: #C33E4B; }
   </style>
 </head>
 <body>
   <h1>ratex</h1>
   <p>
-    LaTeX math rendered to self-contained SVG by the Rust
-    <a href="https://github.com/erweixin/RaTeX">RaTeX</a> engine running as
-    WebAssembly, no server, no webfonts, no JavaScript math library.
+    Enter a LaTeX formula and render it as SVG. The Rust
+    <a href="https://github.com/erweixin/RaTeX">RaTeX</a> engine runs in your
+    browser through WebAssembly, with font outlines included in the SVG.
   </p>
   <textarea id="input" spellcheck="false">\frac{-b \pm \sqrt{b^2-4ac}}{2a}</textarea>
   <div id="controls">

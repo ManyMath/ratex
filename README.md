@@ -75,8 +75,8 @@ cd apps/ratex_example && flutter run -d chrome
 | Android | Expected to work (pure-Rust engine; cargokit wiring in place) |
 | iOS | Expected to work (pure-Rust engine; cargokit wiring in place) |
 
-See [ROADMAP.md](ROADMAP.md) for what's next (isolate offload, PNG/PDF
-export, precompiled binary releases, and upstream engine integration).
+Planned work includes rendering in an isolate, PNG/PDF export, precompiled
+binaries, and upstream engine integration.
 
 ## Development
 
