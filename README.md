@@ -1,15 +1,12 @@
 # ratex
 
-KaTeX-compatible math rendering for Dart and Flutter with the goal of no
-additional system dependencies for users or devs to install. The only build-
-time requirement beyond Dart/Flutter is Rust, and precompiled binaries are
-configured to obviate even that for Flutter consumers.
+KaTeX-compatible mathematics rendering for Dart and Flutter. The Rust
+[RaTeX](https://github.com/erweixin/RaTeX) engine handles mathematics, mhchem
+chemistry, and proof trees. It runs through FFI on native platforms and
+WebAssembly in browsers, using the same display-list format.
 
-It wraps the Rust [RaTeX](https://github.com/erweixin/RaTeX) engine, a
-KaTeX-compatible math typesetter in pure Rust (math, mhchem chemistry, proof
-trees) with no system dependencies, so the same core cross-compiles to every
-native target **and to WebAssembly**, giving the whole stack first-class web
-support: one engine, one display-list protocol, every platform.
+Native builds require Rust in addition to Dart or Flutter. Precompiled
+binary releases are planned.
 
 This is a [melos](https://melos.invertase.dev) monorepo:
 
@@ -40,7 +37,7 @@ import 'package:ratex_flutter/ratex_flutter.dart';
 RatexMath(r'\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}', fontSize: 28)
 ```
 
-No font setup, no manual native builds, cargokit compiles the crate during
+cargokit compiles the native library and bundles its fonts during
 `flutter build` on Android/iOS/Linux/macOS/Windows. For Flutter web, build
 `ratex_ffi.wasm` once (`melos run native:build:web`) and serve it from your
 app's `web/` directory.
@@ -70,10 +67,10 @@ cd apps/ratex_example && flutter run -d chrome
 |---|---|
 | Linux | Working (native FFI, verified end to end) |
 | Web | Working (WebAssembly, verified end to end, dart2js and Flutter web) |
-| macOS | Expected to work (pure-Rust engine; cargokit wiring in place) |
-| Windows | Expected to work (pure-Rust engine; cargokit wiring in place) |
-| Android | Expected to work (pure-Rust engine; cargokit wiring in place) |
-| iOS | Expected to work (pure-Rust engine; cargokit wiring in place) |
+| macOS | Expected to work (pure-Rust engine; cargokit configured) |
+| Windows | Expected to work (pure-Rust engine; cargokit configured) |
+| Android | Expected to work (pure-Rust engine; cargokit configured) |
+| iOS | Expected to work (pure-Rust engine; cargokit configured) |
 
 Planned work includes rendering in an isolate, PNG/PDF export, precompiled
 binaries, and upstream engine integration.

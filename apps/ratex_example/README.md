@@ -1,7 +1,7 @@
-# Ratex Flutter example
+# RaTeX Flutter example
 
 This is a minimal cross-platform application that renders one expression with
-`RatexMath`. It intentionally contains no product state or design-system
+`RatexMath`. It contains no product state or design-system
 dependency.
 
 From the Ratex repository root:

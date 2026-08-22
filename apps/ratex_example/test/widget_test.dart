@@ -8,7 +8,7 @@ void main() {
       const RatexExampleApp(formula: Text('Rendered formula')),
     );
 
-    expect(find.text('Ratex Flutter example'), findsOneWidget);
+    expect(find.text('RaTeX Flutter example'), findsOneWidget);
     expect(find.text('Rendered formula'), findsOneWidget);
   });
 }

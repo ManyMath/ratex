@@ -30,7 +30,7 @@ class RatexExamplePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ratex Flutter example')),
+      appBar: AppBar(title: const Text('RaTeX Flutter example')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

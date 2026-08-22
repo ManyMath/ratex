@@ -47,7 +47,7 @@ class WasmBackend implements RatexBackend {
       throw NoBackendAvailableException(
         'The ratex wasm binary could not be compiled/instantiated '
         '(fetched from "${Ratex.wasmBytes != null ? '<Ratex.wasmBytes>' : Ratex.wasmUrl}"). '
-        'Check that the URL really serves the ratex_ffi.wasm binary: $e',
+        'Check that the URL serves the ratex_ffi.wasm binary: $e',
       );
     }
   }
