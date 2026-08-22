@@ -259,8 +259,8 @@ const RENDER_STACK_SIZE: usize = if cfg!(target_pointer_width = "64") {
 /// Runs `render` on a large-stack worker thread (see [`RENDER_STACK_SIZE`])
 /// so deeply nested input cannot overflow the caller's stack, falling back
 /// to the calling thread if no worker can be started. Engine panics are
-/// re-raised here for [`catch_panic`]. On wasm32 there are no threads, so
-/// rendering stays on the caller's stack.
+/// re-raised here for [`catch_panic`]. On wasm32 there are no threads; the
+/// module's own stack size is raised at link time instead (see `build.rs`).
 fn run_render(
     render: RenderFn,
     latex: &str,
