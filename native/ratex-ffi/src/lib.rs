@@ -59,7 +59,7 @@ pub struct RatexBuffer {
 /// Render options, deserialized from the optional UTF-8 JSON payload.
 ///
 /// Unknown fields are ignored so older libraries accept newer callers.
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct RenderOptions {
     /// `true` renders in display style (`$$...$$`), `false` in text/inline
@@ -229,7 +229,7 @@ unsafe fn render_entry(
             Ok(o) => o,
             Err(b) => return b,
         };
-        match render(latex, &options) {
+        match run_render(render, latex, &options) {
             Ok(data) => RatexBuffer {
                 data,
                 status: RATEX_STATUS_OK,
@@ -238,6 +238,101 @@ unsafe fn render_entry(
         }
     });
     Box::into_raw(Box::new(buffer))
+}
+
+/// Stack size of the native render worker threads.
+///
+/// The parser accepts up to 512 levels of nesting, and parsing plus layout
+/// of input that deep needs about 4 MiB of stack in release builds and
+/// 16 MiB in debug builds. Host threads can have far less (Flutter's UI
+/// thread, Dart isolate threads, 1 MiB on some platforms), and a stack
+/// overflow aborts the whole process instead of unwinding. The size is a
+/// virtual reservation that costs nothing until touched; it is smaller on
+/// 32-bit targets, where address space is scarce and frames are smaller.
+#[cfg(not(target_family = "wasm"))]
+const RENDER_STACK_SIZE: usize = if cfg!(target_pointer_width = "64") {
+    64 << 20
+} else {
+    16 << 20
+};
+
+/// Runs `render` on a large-stack worker thread (see [`RENDER_STACK_SIZE`])
+/// so deeply nested input cannot overflow the caller's stack, falling back
+/// to the calling thread if no worker can be started. Engine panics are
+/// re-raised here for [`catch_panic`]. On wasm32 there are no threads, so
+/// rendering stays on the caller's stack.
+fn run_render(
+    render: RenderFn,
+    latex: &str,
+    options: &RenderOptions,
+) -> Result<Vec<u8>, RatexBuffer> {
+    #[cfg(not(target_family = "wasm"))]
+    if let Some(outcome) = worker::run(render, latex, options) {
+        return outcome.unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+    }
+    render(latex, options)
+}
+
+#[cfg(not(target_family = "wasm"))]
+mod worker {
+    //! One long-lived render thread per calling thread: spawning a thread
+    //! per call would roughly triple the cost of a small formula.
+
+    use super::{RatexBuffer, RenderFn, RenderOptions, RENDER_STACK_SIZE};
+    use std::sync::mpsc::{channel, Receiver, Sender};
+    use std::thread::Result as Outcome;
+
+    type Rendered = Result<Vec<u8>, RatexBuffer>;
+    type Job = (RenderFn, String, RenderOptions);
+
+    struct Worker {
+        jobs: Sender<Job>,
+        results: Receiver<Outcome<Rendered>>,
+    }
+
+    thread_local! {
+        // Dropped when the calling thread exits, which closes the job
+        // channel and ends the worker.
+        static WORKER: Option<Worker> = spawn();
+    }
+
+    fn spawn() -> Option<Worker> {
+        let (jobs, job_rx) = channel::<Job>();
+        let (result_tx, results) = channel();
+        std::thread::Builder::new()
+            .name("ratex-render".into())
+            .stack_size(RENDER_STACK_SIZE)
+            .spawn(move || {
+                for (render, latex, options) in job_rx {
+                    let outcome = std::panic::catch_unwind(|| render(&latex, &options));
+                    if result_tx.send(outcome).is_err() {
+                        break;
+                    }
+                }
+            })
+            .ok()?;
+        Some(Worker { jobs, results })
+    }
+
+    /// `None` when no worker is available (it could not be spawned, or the
+    /// calling thread is being torn down).
+    pub(super) fn run(
+        render: RenderFn,
+        latex: &str,
+        options: &RenderOptions,
+    ) -> Option<Outcome<Rendered>> {
+        WORKER
+            .try_with(|worker| {
+                let worker = worker.as_ref()?;
+                worker
+                    .jobs
+                    .send((render, latex.to_owned(), options.clone()))
+                    .ok()?;
+                worker.results.recv().ok()
+            })
+            .ok()
+            .flatten()
+    }
 }
 
 /// On native targets a panic in the engine must not unwind across the ABI;
@@ -651,6 +746,44 @@ mod tests {
         // Must be the documented null return, not an abort/trap.
         assert!(ratex_alloc(usize::MAX / 2).is_null());
         assert!(ratex_alloc(0).is_null());
+    }
+
+    #[test]
+    fn deep_nesting_does_not_overflow_a_small_host_stack() {
+        // 511 levels is the most the parser accepts; rendering it needs far
+        // more stack than this host thread has.
+        let depth = 511;
+        let inputs = [
+            format!("{}x{}", "{".repeat(depth), "}".repeat(depth)),
+            format!("{}x{}", r"\sqrt{".repeat(depth), "}".repeat(depth)),
+        ];
+        let host = std::thread::Builder::new()
+            .stack_size(256 << 10)
+            .spawn(move || {
+                inputs.map(|latex| unsafe {
+                    (
+                        render(ratex_render_display_list, &latex, "").0,
+                        render(ratex_render_svg, &latex, "").0,
+                    )
+                })
+            })
+            .unwrap();
+        for statuses in host.join().unwrap() {
+            assert_eq!(statuses, (RATEX_STATUS_OK, RATEX_STATUS_OK));
+        }
+    }
+
+    #[test]
+    fn engine_panics_become_internal_errors() {
+        fn boom(_: &str, _: &RenderOptions) -> Result<Vec<u8>, RatexBuffer> {
+            panic!("simulated engine bug")
+        }
+        let buf = unsafe { render_entry(b"x".as_ptr(), 1, core::ptr::null(), 0, boom) };
+        assert_eq!(ratex_buffer_status(buf), RATEX_STATUS_INTERNAL_ERROR);
+        ratex_buffer_free(buf);
+        // The render worker survives the panic.
+        let (status, _) = unsafe { render(ratex_render_display_list, "x", "") };
+        assert_eq!(status, RATEX_STATUS_OK);
     }
 
     #[test]
