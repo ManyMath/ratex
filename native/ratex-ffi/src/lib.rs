@@ -32,7 +32,7 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 use ratex_layout::{layout, to_display_list, LayoutOptions};
-use ratex_parser::parse;
+use ratex_parser::Parser;
 use ratex_types::color::Color;
 use ratex_types::display_item::{DisplayItem, DisplayList};
 use ratex_types::math_style::MathStyle;
@@ -383,11 +383,15 @@ unsafe fn read_options(ptr: *const u8, len: usize) -> Result<RenderOptions, Rate
 }
 
 fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayList, RatexBuffer> {
-    let nodes = parse(latex).map_err(|e| {
+    let source = strip_outer_math_delimiters(latex);
+    let offset = source.as_ptr() as usize - latex.as_ptr() as usize;
+    let nodes = Parser::new(source).parse().map_err(|e| {
         error_buffer(
             RATEX_STATUS_PARSE_ERROR,
             &e.message,
-            e.loc.as_ref().map(|l| (l.start, l.end)),
+            e.loc
+                .as_ref()
+                .and_then(|l| input_span(source, offset, l.start, l.end)),
         )
     })?;
     let style = if options.display_mode {
@@ -413,6 +417,32 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayLi
     let mut display_list = to_display_list(&layout_box);
     sanitize_display_list(&mut display_list);
     Ok(display_list)
+}
+
+/// Same trimming as `ratex_parser::parse` (surrounding whitespace, then one
+/// pair of `$$...$$` or `$...$`), done here so parse-error spans, which are
+/// relative to the stripped text, can be mapped back onto the input.
+fn strip_outer_math_delimiters(input: &str) -> &str {
+    let s = input.trim();
+    if s.len() >= 4 && s.starts_with("$$") && s.ends_with("$$") {
+        return s[2..s.len() - 2].trim();
+    }
+    if s.len() >= 2 && s.starts_with('$') && s.ends_with('$') {
+        return s[1..s.len() - 1].trim();
+    }
+    s
+}
+
+/// Maps a parser span over `source` (which starts `offset` bytes into the
+/// input) to input byte offsets. Spans that do not fit `source` are dropped:
+/// errors raised inside a macro expansion point into the macro's
+/// definition, not the input.
+fn input_span(source: &str, offset: usize, start: usize, end: usize) -> Option<(usize, usize)> {
+    (start <= end
+        && end <= source.len()
+        && source.is_char_boundary(start)
+        && source.is_char_boundary(end))
+    .then_some((offset + start, offset + end))
 }
 
 /// `Color::parse` accepts any parseable float, including `nan`/`inf`
@@ -680,6 +710,31 @@ mod tests {
         assert_eq!(status, RATEX_STATUS_PARSE_ERROR);
         let err: serde_json::Value = serde_json::from_str(&payload).unwrap();
         assert!(!err["message"].as_str().unwrap().is_empty());
+    }
+
+    fn parse_error_span(latex: &str) -> (Option<u64>, Option<u64>) {
+        let (status, payload) = unsafe { render(ratex_render_display_list, latex, "") };
+        assert_eq!(status, RATEX_STATUS_PARSE_ERROR, "{latex}: {payload}");
+        let err: serde_json::Value = serde_json::from_str(&payload).unwrap();
+        (err["start"].as_u64(), err["end"].as_u64())
+    }
+
+    #[test]
+    fn parse_error_spans_are_offsets_into_the_input() {
+        let plain = r"\frac{a}{";
+        assert_eq!(parse_error_span(plain), (Some(9), Some(9)));
+        // Stripped whitespace and math delimiters must not shift the span.
+        assert_eq!(
+            parse_error_span(&format!("  {plain}")),
+            (Some(11), Some(11))
+        );
+        assert_eq!(
+            parse_error_span(&format!("$ {plain}$")),
+            (Some(11), Some(11))
+        );
+        // Errors inside a macro expansion report positions in the macro's
+        // definition, past the end of this input; they must be dropped.
+        assert_eq!(parse_error_span(r"\Braket^"), (None, None));
     }
 
     #[test]
