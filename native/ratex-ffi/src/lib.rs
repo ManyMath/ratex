@@ -27,10 +27,6 @@
 //! object `{"message": string, "start": number|null, "end": number|null}`
 //! with byte offsets into the input, for editor diagnostics.
 
-// The `ratex_buffer_*` accessors take raw handles; the caller is responsible
-// for handle validity, as with every C ABI.
-#![allow(clippy::not_unsafe_ptr_arg_deref)]
-
 use ratex_layout::{layout, to_display_list, LayoutOptions};
 use ratex_parser::Parser;
 use ratex_types::color::Color;
@@ -176,9 +172,12 @@ pub unsafe extern "C" fn ratex_render_svg(
 
 /// Status code of a result buffer (`RATEX_STATUS_*`); `INTERNAL_ERROR` for a
 /// null handle.
+///
+/// # Safety
+/// `buf` must be null or a live handle from a render call.
 #[no_mangle]
-pub extern "C" fn ratex_buffer_status(buf: *const RatexBuffer) -> i32 {
-    match unsafe { buf.as_ref() } {
+pub unsafe extern "C" fn ratex_buffer_status(buf: *const RatexBuffer) -> i32 {
+    match buf.as_ref() {
         Some(b) => b.status,
         None => RATEX_STATUS_INTERNAL_ERROR,
     }
@@ -186,28 +185,38 @@ pub extern "C" fn ratex_buffer_status(buf: *const RatexBuffer) -> i32 {
 
 /// Borrowed pointer to the buffer's payload bytes, valid until
 /// [`ratex_buffer_free`]. Null for a null handle.
+///
+/// # Safety
+/// `buf` must be null or a live handle from a render call.
 #[no_mangle]
-pub extern "C" fn ratex_buffer_data(buf: *const RatexBuffer) -> *const u8 {
-    match unsafe { buf.as_ref() } {
+pub unsafe extern "C" fn ratex_buffer_data(buf: *const RatexBuffer) -> *const u8 {
+    match buf.as_ref() {
         Some(b) => b.data.as_ptr(),
         None => core::ptr::null(),
     }
 }
 
 /// Length in bytes of the buffer's payload. 0 for a null handle.
+///
+/// # Safety
+/// `buf` must be null or a live handle from a render call.
 #[no_mangle]
-pub extern "C" fn ratex_buffer_len(buf: *const RatexBuffer) -> usize {
-    match unsafe { buf.as_ref() } {
+pub unsafe extern "C" fn ratex_buffer_len(buf: *const RatexBuffer) -> usize {
+    match buf.as_ref() {
         Some(b) => b.data.len(),
         None => 0,
     }
 }
 
-/// Frees a result buffer. Null-safe; freeing twice is UB.
+/// Frees a result buffer. Null-safe.
+///
+/// # Safety
+/// `buf` must be null or a live handle from a render call; it must not be
+/// used (or freed again) afterwards.
 #[no_mangle]
-pub extern "C" fn ratex_buffer_free(buf: *mut RatexBuffer) {
+pub unsafe extern "C" fn ratex_buffer_free(buf: *mut RatexBuffer) {
     if !buf.is_null() {
-        drop(unsafe { Box::from_raw(buf) });
+        drop(Box::from_raw(buf));
     }
 }
 
@@ -755,22 +764,25 @@ mod tests {
     #[test]
     fn invalid_utf8_input_is_rejected() {
         let bad = [0xff_u8, 0xfe];
-        let buf =
-            unsafe { ratex_render_display_list(bad.as_ptr(), bad.len(), core::ptr::null(), 0) };
-        assert_eq!(ratex_buffer_status(buf), RATEX_STATUS_INVALID_INPUT);
-        ratex_buffer_free(buf);
+        unsafe {
+            let buf = ratex_render_display_list(bad.as_ptr(), bad.len(), core::ptr::null(), 0);
+            assert_eq!(ratex_buffer_status(buf), RATEX_STATUS_INVALID_INPUT);
+            ratex_buffer_free(buf);
+        }
     }
 
     #[test]
     fn null_handles_are_safe() {
-        assert_eq!(
-            ratex_buffer_status(core::ptr::null()),
-            RATEX_STATUS_INTERNAL_ERROR
-        );
-        assert_eq!(ratex_buffer_len(core::ptr::null()), 0);
-        assert!(ratex_buffer_data(core::ptr::null()).is_null());
-        ratex_buffer_free(core::ptr::null_mut());
-        unsafe { ratex_free(core::ptr::null_mut(), 0) };
+        unsafe {
+            assert_eq!(
+                ratex_buffer_status(core::ptr::null()),
+                RATEX_STATUS_INTERNAL_ERROR
+            );
+            assert_eq!(ratex_buffer_len(core::ptr::null()), 0);
+            assert!(ratex_buffer_data(core::ptr::null()).is_null());
+            ratex_buffer_free(core::ptr::null_mut());
+            ratex_free(core::ptr::null_mut(), 0);
+        }
     }
 
     #[test]
@@ -833,9 +845,11 @@ mod tests {
         fn boom(_: &str, _: &RenderOptions) -> Result<Vec<u8>, RatexBuffer> {
             panic!("simulated engine bug")
         }
-        let buf = unsafe { render_entry(b"x".as_ptr(), 1, core::ptr::null(), 0, boom) };
-        assert_eq!(ratex_buffer_status(buf), RATEX_STATUS_INTERNAL_ERROR);
-        ratex_buffer_free(buf);
+        unsafe {
+            let buf = render_entry(b"x".as_ptr(), 1, core::ptr::null(), 0, boom);
+            assert_eq!(ratex_buffer_status(buf), RATEX_STATUS_INTERNAL_ERROR);
+            ratex_buffer_free(buf);
+        }
         // The render worker survives the panic.
         let (status, _) = unsafe { render(ratex_render_display_list, "x", "") };
         assert_eq!(status, RATEX_STATUS_OK);
