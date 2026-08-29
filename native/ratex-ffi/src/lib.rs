@@ -110,19 +110,23 @@ pub extern "C" fn ratex_version_len() -> usize {
 /// here, then release with [`ratex_free`] using the same length.
 #[no_mangle]
 pub extern "C" fn ratex_alloc(len: usize) -> *mut u8 {
+    // The raw allocator rather than a Vec: failure must surface as the
+    // documented null return, not abort the host process (or trap the wasm
+    // instance) through handle_alloc_error, and ratex_free must deallocate
+    // with exactly this layout.
+    match staging_layout(len) {
+        Some(layout) => unsafe { std::alloc::alloc(layout) },
+        None => core::ptr::null_mut(),
+    }
+}
+
+/// Layout of a `ratex_alloc(len)` block; `None` for zero or oversized
+/// lengths.
+fn staging_layout(len: usize) -> Option<std::alloc::Layout> {
     if len == 0 {
-        return core::ptr::null_mut();
+        return None;
     }
-    // try_reserve_exact instead of with_capacity: allocation failure must
-    // surface as the documented null return, not abort the host process
-    // (or trap the wasm instance) through handle_alloc_error.
-    let mut buf = Vec::<u8>::new();
-    if buf.try_reserve_exact(len).is_err() {
-        return core::ptr::null_mut();
-    }
-    let ptr = buf.as_mut_ptr();
-    core::mem::forget(buf);
-    ptr
+    std::alloc::Layout::array::<u8>(len).ok()
 }
 
 /// Releases memory obtained from [`ratex_alloc`]. `len` must be the length
@@ -132,10 +136,12 @@ pub extern "C" fn ratex_alloc(len: usize) -> *mut u8 {
 /// `ptr` must come from `ratex_alloc(len)` and not have been freed already.
 #[no_mangle]
 pub unsafe extern "C" fn ratex_free(ptr: *mut u8, len: usize) {
-    if ptr.is_null() || len == 0 {
+    if ptr.is_null() {
         return;
     }
-    drop(Vec::from_raw_parts(ptr, 0, len));
+    if let Some(layout) = staging_layout(len) {
+        std::alloc::dealloc(ptr, layout);
+    }
 }
 
 /// Parses `input` (UTF-8 LaTeX math, `input_len` bytes) and lays it out,
