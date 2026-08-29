@@ -22,7 +22,9 @@ ratex-parser = "0.1.13"
 ratex-layout = "0.1.13"
 ratex-types = "0.1.13"
 # SVG export. `embed-fonts` compiles the KaTeX TTFs into the binary so
-# `embed_glyphs` SVG output is fully self-contained (no font files, no CSS).
+# `embed_glyphs` SVG output needs no font files or CSS for math. It also pulls
+# in ratex-unicode-font, which looks up a system font at render time for
+# characters the KaTeX fonts lack (CJK, emoji).
 ratex-svg = { version = "0.1.13", features = ["embed-fonts"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

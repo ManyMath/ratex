@@ -21,7 +21,11 @@
 //!   byte-compatible with upstream RaTeX's `ratex-ffi`/`ratex-wasm` output;
 //! - [`ratex_render_svg`] -> an SVG document; with `embedGlyphs: true`
 //!   (the default here) glyph outlines are inlined from the compiled-in KaTeX
-//!   fonts, so the SVG renders correctly with no fonts installed or served.
+//!   fonts, so math renders with no fonts installed or served. Characters
+//!   the KaTeX fonts lack (CJK, emoji in `\text{}`) are outlined from a
+//!   system font found at render time on native targets (overridable with
+//!   the `RATEX_UNICODE_FONT` environment variable) and become `<text>`
+//!   elements that rely on the viewer's fonts on wasm32.
 //!
 //! On error the buffer's status is non-zero and the payload is a small JSON
 //! object `{"message": string, "start": number|null, "end": number|null}`
@@ -71,8 +75,9 @@ pub struct RenderOptions {
     /// SVG only: stroke width for unfilled paths, in user units.
     pub stroke_width: f64,
     /// SVG only: `true` inlines glyph outlines from the embedded KaTeX fonts
-    /// (self-contained output); `false` emits `<text>` elements that need the
-    /// KaTeX webfonts at display time.
+    /// (self-contained output for everything the KaTeX fonts cover, see the
+    /// crate docs); `false` emits `<text>` elements that need the KaTeX
+    /// webfonts at display time.
     pub embed_glyphs: bool,
 }
 
