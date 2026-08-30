@@ -90,6 +90,17 @@ abstract final class Ratex {
     throw NoBackendAvailableException('No backend named "$name" registered.');
   }
 
+  /// Whether the selected backend has finished [ensureInitialized], so the
+  /// synchronous [renderDisplayListSync]/[renderSvgSync] variants can be
+  /// used. False when no backend is available.
+  static bool get isInitialized {
+    try {
+      return _initialized.contains(backend);
+    } on NoBackendAvailableException {
+      return false;
+    }
+  }
+
   /// Selects and initializes the backend (loads the native library, or
   /// fetches and instantiates the wasm binary). Idempotent and safe to call
   /// concurrently: overlapping callers share one initialization and none

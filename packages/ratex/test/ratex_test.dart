@@ -370,6 +370,21 @@ void main() {
       },
     );
 
+    test('isInitialized tracks the selected backend', () async {
+      Ratex.registerBackend(
+        _FakeBackend('fake', priority: 1000),
+        makeActive: true,
+      );
+      expect(Ratex.isInitialized, isFalse);
+      await Ratex.ensureInitialized();
+      expect(Ratex.isInitialized, isTrue);
+      Ratex.registerBackend(
+        _FakeBackend('other', priority: 2000),
+        makeActive: true,
+      );
+      expect(Ratex.isInitialized, isFalse);
+    });
+
     test('sync render requires prior initialization', () {
       Ratex.registerBackend(
         _FakeBackend('fake', priority: 1000),
