@@ -98,17 +98,21 @@ abstract final class Ratex {
     final b = backend;
     var initialization = _initFutures[b];
     if (initialization == null) {
-      initialization = () async {
+      late final Future<void> pending;
+      pending = () async {
         try {
-          await b.initialize();
+          // Future.sync turns a synchronous throw into a failed future, so
+          // the catch below always runs after `pending` is registered.
+          await Future<void>.sync(b.initialize);
           _initialized.add(b);
         } catch (_) {
-          // Let a later call retry (e.g. after fixing Ratex.wasmUrl).
-          _initFutures.remove(b);
+          // Let a later call retry (e.g. after fixing Ratex.wasmUrl), unless
+          // a reset() or newer attempt already replaced this entry.
+          if (identical(_initFutures[b], pending)) _initFutures.remove(b);
           rethrow;
         }
       }();
-      _initFutures[b] = initialization;
+      _initFutures[b] = initialization = pending;
     }
     await initialization;
     return b;

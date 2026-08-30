@@ -75,6 +75,22 @@ class _SlowBackend extends _FakeBackend {
   }
 }
 
+/// A backend whose non-async [initialize] throws synchronously until
+/// [fail] is cleared.
+class _FlakyBackend extends _FakeBackend {
+  _FlakyBackend() : super('flaky', priority: 5000);
+
+  bool fail = true;
+  int initCalls = 0;
+
+  @override
+  Future<void> initialize() {
+    initCalls++;
+    if (fail) throw StateError('not yet');
+    return super.initialize();
+  }
+}
+
 void main() {
   group('DisplayList JSON', () {
     // The protocol documentation's own example payload.
@@ -340,6 +356,19 @@ void main() {
         reason: 'second call must not re-initialize',
       );
     });
+
+    test(
+      'a failed initialization is retried, even a synchronous throw',
+      () async {
+        final flaky = _FlakyBackend();
+        Ratex.registerBackend(flaky, makeActive: true);
+        await expectLater(Ratex.ensureInitialized(), throwsStateError);
+        flaky.fail = false;
+        await Ratex.ensureInitialized();
+        expect(flaky.initCalls, 2);
+        expect(flaky.initialized, isTrue);
+      },
+    );
 
     test('sync render requires prior initialization', () {
       Ratex.registerBackend(
