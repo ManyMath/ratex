@@ -218,9 +218,11 @@ class FfiBackend implements RatexBackend {
     final b = _requireBindings();
     final input = utf8.encode(latex);
     final opts = utf8.encode(jsonEncode(options.toJson()));
-    final inputPtr = _stage(b, input);
-    final optsPtr = _stage(b, opts);
+    Pointer<Uint8> inputPtr = nullptr;
+    Pointer<Uint8> optsPtr = nullptr;
     try {
+      inputPtr = _stage(b, input);
+      optsPtr = _stage(b, opts);
       final buffer = render(inputPtr, input.length, optsPtr, opts.length);
       try {
         final status = b.bufferStatus(buffer);
@@ -235,6 +237,7 @@ class FfiBackend implements RatexBackend {
         b.bufferFree(buffer);
       }
     } finally {
+      // ratex_free ignores null pointers (never-staged buffers).
       b.free(inputPtr, input.length);
       b.free(optsPtr, opts.length);
     }

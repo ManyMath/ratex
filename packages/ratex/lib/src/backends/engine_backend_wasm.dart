@@ -181,9 +181,11 @@ class WasmBackend implements RatexBackend {
   String _renderCall(String export, String latex, RatexOptions options) {
     final input = utf8.encode(latex);
     final opts = utf8.encode(jsonEncode(options.toJson()));
-    final inputPtr = _stage(input);
-    final optsPtr = _stage(opts);
+    var inputPtr = 0;
+    var optsPtr = 0;
     try {
+      inputPtr = _stage(input);
+      optsPtr = _stage(opts);
       final buffer = _call(export, [
         inputPtr.toJS,
         input.length.toJS,
