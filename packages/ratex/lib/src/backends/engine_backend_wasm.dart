@@ -38,7 +38,7 @@ class WasmBackend implements RatexBackend {
     if (_exports != null) return;
     final bytes = Ratex.wasmBytes ?? await _fetchBytes(Ratex.wasmUrl);
     try {
-      final instance = await _instantiate(_compileModule(bytes));
+      final instance = await _instantiate(await _compileModule(bytes));
       _exports = instance.getProperty<JSObject>('exports'.toJS);
     } on Object catch (e) {
       // A raw JS CompileError here usually means the server sent something
@@ -82,9 +82,12 @@ class WasmBackend implements RatexBackend {
   static JSObject _webAssembly() =>
       globalContext.getProperty<JSObject>('WebAssembly'.toJS);
 
-  static JSObject _compileModule(Uint8List bytes) => _webAssembly()
-      .getProperty<JSFunction>('Module'.toJS)
-      .callAsConstructor<JSObject>(bytes.toJS);
+  /// Compiles off the main thread: browsers may refuse the synchronous
+  /// `new WebAssembly.Module(bytes)` for modules this large (Chrome long
+  /// capped it at 4 KB on the main thread).
+  static Future<JSObject> _compileModule(Uint8List bytes) => _webAssembly()
+      .callMethod<JSPromise<JSObject>>('compile'.toJS, bytes.toJS)
+      .toDart;
 
   static JSFunction _throwingStub(String qualifiedName) {
     void stub() {
