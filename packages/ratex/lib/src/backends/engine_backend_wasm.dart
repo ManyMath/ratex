@@ -19,7 +19,9 @@ RatexBackend? createEngineBackend() => WasmBackend();
 /// The binary comes from [Ratex.wasmBytes] when set (e.g. a Flutter asset),
 /// otherwise it is fetched from [Ratex.wasmUrl].
 class WasmBackend implements RatexBackend {
+  JSObject? _module;
   JSObject? _exports;
+  Future<void>? _restarting;
 
   @override
   String get name => 'wasm';
@@ -38,7 +40,9 @@ class WasmBackend implements RatexBackend {
     if (_exports != null) return;
     final bytes = Ratex.wasmBytes ?? await _fetchBytes(Ratex.wasmUrl);
     try {
-      final instance = await _instantiate(await _compileModule(bytes));
+      final module = await _compileModule(bytes);
+      final instance = await _instantiate(module);
+      _module = module;
       _exports = instance.getProperty<JSObject>('exports'.toJS);
     } on Object catch (e) {
       // A raw JS CompileError here usually means the server sent something
@@ -132,12 +136,40 @@ class WasmBackend implements RatexBackend {
         .toDart;
   }
 
-  JSObject get _e =>
-      _exports ??
-      (throw StateError(
-        'Ratex.ensureInitialized() must complete before rendering on the '
-        'web.',
-      ));
+  JSObject get _e {
+    final exports = _exports;
+    if (exports != null) return exports;
+    if (_module != null) {
+      _restart();
+      throw const RatexInternalException(
+        'The wasm engine is restarting after a failed call; try again.',
+      );
+    }
+    throw StateError(
+      'Ratex.ensureInitialized() must complete before rendering on the web.',
+    );
+  }
+
+  /// Replaces the instance with a fresh one of the same module. A trap (an
+  /// engine panic, or running out of memory) leaves the old instance
+  /// unusable: its stack pointer stays wherever the trap happened. Calls
+  /// made before the new instance is ready fail via [_e].
+  void _restart() {
+    _exports = null;
+    final module = _module;
+    if (module == null || _restarting != null) return;
+    _restarting = _instantiate(module)
+        .then((instance) {
+          // Unless dispose() or a re-initialization replaced the module.
+          if (identical(_module, module)) {
+            _exports = instance.getProperty<JSObject>('exports'.toJS);
+          }
+        })
+        .catchError((Object _) {
+          // Left unavailable; the next call through [_e] retries.
+        })
+        .whenComplete(() => _restarting = null);
+  }
 
   int _call(String name, List<JSAny?> args) =>
       _e.callMethodVarArgs<JSNumber>(name.toJS, args).toDartInt;
@@ -184,6 +216,20 @@ class WasmBackend implements RatexBackend {
   String _renderCall(String export, String latex, RatexOptions options) {
     final input = utf8.encode(latex);
     final opts = utf8.encode(jsonEncode(options.toJson()));
+    final exports = _e;
+    try {
+      return _engineCall(export, input, opts);
+    } on RatexException {
+      rethrow;
+    } on Object catch (e) {
+      // A JS RuntimeError from a trap, which no later call can recover from
+      // on this instance (frees in the finally blocks may trap again).
+      if (identical(_exports, exports)) _restart();
+      throw RatexInternalException('The wasm engine failed: $e');
+    }
+  }
+
+  String _engineCall(String export, Uint8List input, Uint8List opts) {
     var inputPtr = 0;
     var optsPtr = 0;
     try {
@@ -243,6 +289,7 @@ class WasmBackend implements RatexBackend {
 
   @override
   Future<void> dispose() async {
+    _module = null;
     _exports = null;
   }
 }
