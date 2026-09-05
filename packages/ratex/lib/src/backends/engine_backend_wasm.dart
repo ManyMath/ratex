@@ -171,8 +171,10 @@ class WasmBackend implements RatexBackend {
         .whenComplete(() => _restarting = null);
   }
 
+  // wasm32 pointers and lengths are unsigned, but i32 results reach JS as
+  // signed numbers (negative from 2 GiB up).
   int _call(String name, List<JSAny?> args) =>
-      _e.callMethodVarArgs<JSNumber>(name.toJS, args).toDartInt;
+      _e.callMethodVarArgs<JSNumber>(name.toJS, args).toDartInt.toUnsigned(32);
 
   void _callVoid(String name, List<JSAny?> args) =>
       _e.callMethodVarArgs<JSAny?>(name.toJS, args);
