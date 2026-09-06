@@ -54,8 +54,8 @@ interop; there is no wasm-bindgen glue and no JavaScript math library.
 ## Errors
 
 Parse failures throw `RatexParseException` with the engine's message and, when
-known, the byte span of the offending input (`start`/`end`), enough to build
-editor diagnostics.
+known, the span of the offending input as string indices (`start`/`end`, ready
+for `substring`), enough to build editor diagnostics.
 
 ## Examples
 

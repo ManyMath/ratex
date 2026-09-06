@@ -12,10 +12,12 @@ class RatexException implements Exception {
 class RatexParseException extends RatexException {
   const RatexParseException(super.message, {this.start, this.end});
 
-  /// Byte offset into the input where the error begins, when known.
+  /// Index into the input string where the error begins, when known, in
+  /// UTF-16 code units like `String.substring`.
   final int? start;
 
-  /// Byte offset into the input where the error ends, when known.
+  /// Index into the input string where the error ends (exclusive), when
+  /// known.
   final int? end;
 
   /// Whether the engine reported a source span for this error.

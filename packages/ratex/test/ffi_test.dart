@@ -95,6 +95,18 @@ void main() {
     );
   });
 
+  test('parse error spans index the Dart string', () async {
+    if (!await ready()) return;
+    const input = r'αβ + \undefinedmacro';
+    try {
+      Ratex.renderDisplayListSync(input);
+      fail('expected a parse error');
+    } on RatexParseException catch (e) {
+      expect(e.hasSpan, isTrue);
+      expect(input.substring(e.start!, e.end!), r'\undefinedmacro');
+    }
+  });
+
   test('rejects invalid colors as invalid input', () async {
     if (!await ready()) return;
     expect(

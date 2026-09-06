@@ -50,7 +50,7 @@ Future<void> main(List<String> args) async {
     } on RatexParseException catch (e) {
       stdout.writeln(
         '$name\n  $latex\n  parse error: ${e.message}'
-        '${e.hasSpan ? ' (bytes ${e.start}..${e.end})' : ''}\n',
+        '${e.hasSpan ? ' (at ${e.start}..${e.end})' : ''}\n',
       );
     }
   }

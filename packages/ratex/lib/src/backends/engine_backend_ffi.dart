@@ -230,7 +230,7 @@ class FfiBackend implements RatexBackend {
           b.bufferData(buffer).asTypedList(b.bufferLen(buffer)),
         );
         if (status != 0) {
-          throwForStatus(status, payload);
+          throwForStatus(status, payload, input);
         }
         return payload;
       } finally {

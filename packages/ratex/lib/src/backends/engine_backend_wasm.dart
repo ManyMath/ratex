@@ -249,7 +249,7 @@ class WasmBackend implements RatexBackend {
         final len = _call('ratex_buffer_len', [buffer.toJS]);
         final payload = utf8.decode(_read(data, len));
         if (status != 0) {
-          throwForStatus(status, payload);
+          throwForStatus(status, payload, input);
         }
         return payload;
       } finally {

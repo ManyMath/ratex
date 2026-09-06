@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'dart:convert';
+
 import 'package:ratex/ratex.dart';
+import 'package:ratex/src/backends/status.dart';
 import 'package:test/test.dart';
 
 /// A stand-in backend for exercising the registry without native code.
@@ -409,6 +412,50 @@ void main() {
       await Ratex.ensureInitialized();
       await Ratex.reset();
       expect(fake.disposed, isTrue);
+    });
+  });
+
+  group('throwForStatus', () {
+    RatexParseException parseError(String input, int? start, int? end) {
+      try {
+        throwForStatus(
+          1,
+          jsonEncode({'message': 'boom', 'start': start, 'end': end}),
+          utf8.encode(input),
+        );
+      } on RatexParseException catch (e) {
+        return e;
+      }
+    }
+
+    test('converts UTF-8 byte spans to string indices', () {
+      const input = r'éé\foo';
+      final e = parseError(input, 4, 8);
+      expect(input.substring(e.start!, e.end!), r'\foo');
+    });
+
+    test('drops spans that are out of range or split a character', () {
+      expect(parseError('ab', 1, 3).end, isNull);
+      expect(parseError('é', 0, 1).end, isNull);
+      expect(parseError('ab', null, null).hasSpan, isFalse);
+    });
+
+    test('maps status codes to exception types', () {
+      final none = utf8.encode('');
+      expect(
+        () => throwForStatus(2, '{"message":"bad"}', none),
+        throwsA(isA<RatexInvalidInputException>()),
+      );
+      expect(
+        () => throwForStatus(3, 'not json', none),
+        throwsA(
+          isA<RatexInternalException>().having(
+            (e) => e.message,
+            'message',
+            'not json',
+          ),
+        ),
+      );
     });
   });
 
