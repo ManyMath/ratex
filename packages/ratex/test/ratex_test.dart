@@ -284,6 +284,16 @@ void main() {
       );
     });
 
+    test('rejects non-finite numbers as invalid input', () {
+      for (final options in [
+        const RatexOptions(fontSize: double.nan),
+        const RatexOptions(padding: double.infinity),
+        const RatexOptions(strokeWidth: double.negativeInfinity),
+      ]) {
+        expect(options.toJson, throwsA(isA<RatexInvalidInputException>()));
+      }
+    });
+
     test('copyWith replaces only the given fields', () {
       const base = RatexOptions();
       final inline = base.copyWith(displayMode: false);

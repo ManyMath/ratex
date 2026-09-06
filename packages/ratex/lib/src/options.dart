@@ -1,3 +1,5 @@
+import 'exceptions.dart';
+
 /// Options accepted by every render call, serialized as JSON across the
 /// engine boundary (unknown fields are ignored by older engines).
 class RatexOptions {
@@ -51,12 +53,27 @@ class RatexOptions {
     embedGlyphs: embedGlyphs ?? this.embedGlyphs,
   );
 
-  Map<String, dynamic> toJson() => {
-    'displayMode': displayMode,
-    if (color != null) 'color': color,
-    'fontSize': fontSize,
-    'padding': padding,
-    'strokeWidth': strokeWidth,
-    'embedGlyphs': embedGlyphs,
-  };
+  /// The engine's JSON form.
+  ///
+  /// Throws [RatexInvalidInputException] when a numeric option is NaN or
+  /// infinite, which JSON cannot carry.
+  Map<String, dynamic> toJson() {
+    for (final (name, value) in [
+      ('fontSize', fontSize),
+      ('padding', padding),
+      ('strokeWidth', strokeWidth),
+    ]) {
+      if (!value.isFinite) {
+        throw RatexInvalidInputException('$name must be finite, got $value');
+      }
+    }
+    return {
+      'displayMode': displayMode,
+      if (color != null) 'color': color,
+      'fontSize': fontSize,
+      'padding': padding,
+      'strokeWidth': strokeWidth,
+      'embedGlyphs': embedGlyphs,
+    };
+  }
 }
