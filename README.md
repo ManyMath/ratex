@@ -23,7 +23,7 @@ This is a [melos](https://melos.invertase.dev) monorepo:
 import 'package:ratex/ratex.dart';
 
 final list = await Ratex.renderDisplayList(r'\frac{-b \pm \sqrt{b^2-4ac}}{2a}');
-print(list); // DisplayList(14 items, 7.02em x 2.06em)
+print(list); // DisplayList(14 items, 7.02em x 2.28em)
 final svg = await Ratex.renderSvg(r'E = mc^2'); // self-contained, fonts embedded
 ```
 

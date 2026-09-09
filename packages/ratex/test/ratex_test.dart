@@ -180,6 +180,16 @@ void main() {
       expect(path.commands.last, isA<CloseCommand>());
     });
 
+    test('summarizes itself with two-decimal em sizes', () {
+      const list = DisplayList(
+        items: [],
+        width: 7.015258888888889,
+        height: 1.5,
+        depth: 0.776389,
+      );
+      expect(list.toString(), 'DisplayList(0 items, 7.02em x 2.28em)');
+    });
+
     test('round-trips through toJson', () {
       final list = DisplayList.fromJson(json);
       final again = DisplayList.fromJson(list.toJson());

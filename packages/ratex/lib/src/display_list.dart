@@ -61,7 +61,8 @@ class DisplayList {
 
   @override
   String toString() =>
-      'DisplayList(${items.length} items, ${width}em x ${totalHeight}em)';
+      'DisplayList(${items.length} items, '
+      '${width.toStringAsFixed(2)}em x ${totalHeight.toStringAsFixed(2)}em)';
 }
 
 /// One drawing command of a [DisplayList].
