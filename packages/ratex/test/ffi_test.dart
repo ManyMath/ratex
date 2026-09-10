@@ -2,11 +2,13 @@
 ///
 /// Build it first:
 ///   cargo build --manifest-path native/ratex-ffi/Cargo.toml
-/// Tests self-skip when the library is missing (e.g. on CI without a native
-/// build), just like on a fresh checkout. Point RATEX_LIB at the library if
-/// it lives somewhere unusual.
+/// Tests self-skip when the library is missing, as on a fresh checkout,
+/// unless RATEX_REQUIRE_NATIVE=1 (set in CI) makes that a failure. Point
+/// RATEX_LIB at the library if it lives somewhere unusual.
 @TestOn('vm')
 library;
+
+import 'dart:io';
 
 import 'package:ratex/ratex.dart';
 import 'package:test/test.dart';
@@ -25,6 +27,9 @@ void main() {
 
   Future<bool> ready() async {
     if (!_nativeAvailable) {
+      if (Platform.environment['RATEX_REQUIRE_NATIVE'] == '1') {
+        fail('ratex_ffi library not found and RATEX_REQUIRE_NATIVE=1');
+      }
       markTestSkipped('ratex_ffi library not built');
       return false;
     }
