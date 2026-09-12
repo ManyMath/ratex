@@ -4,7 +4,7 @@
 //   cargo build --release --manifest-path native/ratex-ffi/Cargo.toml
 // then, from the repo root:
 //   dart run packages/ratex/example/ratex_example.dart              # summary + quadratic.svg
-//   dart run packages/ratex/example/ratex_example.dart '\sqrt{2}'  # render your own formula
+//   dart run packages/ratex/example/ratex_example.dart '\sqrt{2}'  # your formula + formula.svg
 //
 // If the library is elsewhere, point to it with RATEX_LIB=/path/to/lib.
 
@@ -56,10 +56,18 @@ Future<void> main(List<String> args) async {
   }
 
   // Write one formula as a self-contained SVG (glyph outlines embedded, so
-  // it renders correctly anywhere with no fonts installed).
+  // the math renders with no fonts installed).
   final svgFormula = custom ?? _formulas['Quadratic formula']!;
-  final svg = Ratex.renderSvgSync(svgFormula);
-  final out = File('quadratic.svg')..writeAsStringSync(svg);
+  final String svg;
+  try {
+    svg = Ratex.renderSvgSync(svgFormula);
+  } on RatexException catch (e) {
+    stderr.writeln('No SVG written: ${e.message}');
+    exitCode = 1;
+    return;
+  }
+  final out = File(custom != null ? 'formula.svg' : 'quadratic.svg')
+    ..writeAsStringSync(svg);
   stdout.writeln(
     'Wrote ${out.path} (${svg.length} bytes), open it in any '
     'browser or image viewer.',
