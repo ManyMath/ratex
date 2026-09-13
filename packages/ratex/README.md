@@ -9,9 +9,11 @@ Two outputs from one API:
 
 - **Display lists**: the engine's flat list of drawing commands (glyphs,
   lines, rects, paths) in em units, for painting onto any canvas. This is what
-  [`ratex_flutter`](../ratex_flutter) draws.
+  [`ratex_flutter`][ratex_flutter] draws.
 - **Self-contained SVG**: glyph outlines embedded from the compiled-in KaTeX
-  fonts, so the output renders anywhere with no fonts installed or served.
+  fonts, so math renders anywhere with no fonts installed or served.
+  (Characters the KaTeX fonts lack, such as CJK or emoji in `\text{}`,
+  still depend on system fonts.)
 
 ```dart
 import 'dart:io';
@@ -48,8 +50,9 @@ library.
 
 ## Web setup
 
-Serve `ratex_ffi.wasm` (built with `melos run native:build:web`) next to your
-page, or point `Ratex.wasmUrl` at it, or hand the bytes to `Ratex.wasmBytes`.
+Serve `ratex_ffi.wasm` (built with `dart run melos run native:build:web`) next
+to your page, or point `Ratex.wasmUrl` at it, or hand the bytes to
+`Ratex.wasmBytes`.
 The same C ABI is compiled for `wasm32-unknown-unknown` and driven over JS
 interop; there is no wasm-bindgen glue and no JavaScript math library.
 
@@ -66,7 +69,9 @@ for `substring`), enough to build editor diagnostics.
 dart run packages/ratex/example/ratex_example.dart
 
 # Browser: LaTeX in, SVG out, all client-side.
-melos run native:build:web
+dart run melos run native:build:web
 dart compile js packages/ratex/example/web/main.dart -o packages/ratex/example/web/main.dart.js
 python3 -m http.server -d packages/ratex/example/web 8080
 ```
+
+[ratex_flutter]: https://github.com/ManyMath/ratex/tree/main/packages/ratex_flutter

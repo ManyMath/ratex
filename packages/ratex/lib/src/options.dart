@@ -32,9 +32,10 @@ class RatexOptions {
   final double strokeWidth;
 
   /// SVG only: `true` (default) inlines glyph outlines from the engine's
-  /// embedded KaTeX fonts so the SVG is fully self-contained; `false` emits
-  /// `<text>` elements that require the KaTeX webfonts wherever the SVG is
-  /// displayed.
+  /// embedded KaTeX fonts, so the math needs no fonts wherever the SVG is
+  /// displayed (characters the KaTeX fonts lack, such as CJK, still use
+  /// system fonts); `false` emits `<text>` elements that require the KaTeX
+  /// webfonts wherever the SVG is displayed.
   final bool embedGlyphs;
 
   RatexOptions copyWith({
