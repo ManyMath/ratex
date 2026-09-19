@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:ratex/ratex.dart';
 
 import 'ratex_painter.dart';
@@ -15,6 +16,10 @@ import 'ratex_painter.dart';
 /// errors render through [errorBuilder] (a small red message by default),
 /// see [RatexParseException.start]/[RatexParseException.end] for source
 /// spans.
+///
+/// The rendered formula reports its alphabetic baseline, so it lines up with
+/// surrounding text in a baseline-aligned [Row] or in a [WidgetSpan] with
+/// [PlaceholderAlignment.baseline].
 class RatexMath extends StatefulWidget {
   const RatexMath(
     this.latex, {
@@ -210,11 +215,55 @@ class _RatexMathState extends State<RatexMath> {
     final painter = RatexPainter(list, fontSize: widget.fontSize);
     return _semantics(
       label: _semanticLabel,
-      child: SizedBox(
-        width: painter.widthPx,
-        height: painter.totalHeightPx,
-        child: CustomPaint(painter: painter),
+      child: _FormulaBaseline(
+        baseline: painter.heightPx,
+        child: SizedBox(
+          width: painter.widthPx,
+          height: painter.totalHeightPx,
+          child: CustomPaint(painter: painter),
+        ),
       ),
     );
   }
+}
+
+/// Reports [baseline] (distance from the top edge to the formula's baseline)
+/// as the child's baseline, which a plain [SizedBox] does not have.
+class _FormulaBaseline extends SingleChildRenderObjectWidget {
+  const _FormulaBaseline({required this.baseline, super.child});
+
+  final double baseline;
+
+  @override
+  _RenderFormulaBaseline createRenderObject(BuildContext context) =>
+      _RenderFormulaBaseline(baseline);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderFormulaBaseline renderObject,
+  ) {
+    renderObject.baseline = baseline;
+  }
+}
+
+class _RenderFormulaBaseline extends RenderProxyBox {
+  _RenderFormulaBaseline(this._baseline);
+
+  double _baseline;
+  set baseline(double value) {
+    if (value == _baseline) return;
+    _baseline = value;
+    markNeedsLayout();
+  }
+
+  // Math has a single baseline; ideographic requests get the same one.
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) => _baseline;
+
+  @override
+  double? computeDryBaseline(
+    BoxConstraints constraints,
+    TextBaseline baseline,
+  ) => _baseline;
 }

@@ -116,6 +116,35 @@ void main() {
       expect(box.height, 30);
     });
 
+    testWidgets('reports its baseline for baseline alignment', (tester) async {
+      const small = Key('small');
+      const large = Key('large');
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                RatexMath('x', key: small, fontSize: 20),
+                RatexMath('x', key: large, fontSize: 40),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Each baseline sits 1em (the list's height) below the top edge, so
+      // aligned baselines put the smaller formula's top 20px lower.
+      expect(
+        tester.getTopLeft(find.byKey(small)).dy -
+            tester.getTopLeft(find.byKey(large)).dy,
+        20,
+      );
+    });
+
     testWidgets('passes displayMode and inherited color to the engine', (
       tester,
     ) async {
