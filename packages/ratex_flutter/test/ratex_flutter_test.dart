@@ -9,6 +9,7 @@ import 'package:ratex_flutter/ratex_flutter.dart';
 class _FakeBackend implements RatexBackend {
   RatexOptions? lastOptions;
   String? lastLatex;
+  int renderCalls = 0;
   bool initialized = false;
   Completer<void>? initializationGate;
 
@@ -61,6 +62,7 @@ class _FakeBackend implements RatexBackend {
     String latex, {
     RatexOptions options = const RatexOptions(),
   }) {
+    renderCalls++;
     lastLatex = latex;
     lastOptions = options;
     if (latex.contains(r'\bad')) {
@@ -170,6 +172,31 @@ void main() {
       await tester.pumpWidget(app('y'));
       await tester.pumpAndSettle();
       expect(fake.lastLatex, 'y');
+    });
+
+    testWidgets('a superseded failure keeps the newer render cached', (
+      tester,
+    ) async {
+      fake.initializationGate = Completer<void>();
+      Widget app(String latex, double textSize) => MaterialApp(
+        home: DefaultTextStyle(
+          style: TextStyle(color: const Color(0xff000000), fontSize: textSize),
+          child: RatexMath(latex),
+        ),
+      );
+      // Both renders wait on initialization; the first then fails after the
+      // second has superseded it.
+      await tester.pumpWidget(app(r'\bad{', 14));
+      await tester.pumpWidget(app('x', 14));
+      fake.initializationGate!.complete();
+      await tester.pumpAndSettle();
+      expect(fake.renderCalls, 2);
+      expect(find.textContaining('Undefined'), findsNothing);
+
+      // A dependency change with unchanged render inputs reuses the result.
+      await tester.pumpWidget(app('x', 16));
+      await tester.pumpAndSettle();
+      expect(fake.renderCalls, 2);
     });
 
     testWidgets('derives a concise semantic label from the LaTeX source', (

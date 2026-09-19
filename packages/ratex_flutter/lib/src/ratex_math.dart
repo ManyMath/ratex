@@ -164,6 +164,8 @@ class _RatexMathState extends State<RatexMath> {
       final error = e is RatexException
           ? e
           : RatexInternalException('rendering failed: $e');
+      // A superseded render must not touch `_rendered`: it now belongs to
+      // the newer render.
       if (mounted && generation == _generation) {
         setState(() {
           _displayList = null;
@@ -172,8 +174,6 @@ class _RatexMathState extends State<RatexMath> {
           // widget update) retries, e.g. once the wasm binary loads.
           _rendered = null;
         });
-      } else {
-        _rendered = null;
       }
     }
   }
