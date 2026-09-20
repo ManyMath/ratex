@@ -113,8 +113,13 @@ class RatexPainter extends CustomPainter {
   }
 
   void _paintPath(Canvas canvas, PathItem item) {
-    final path = Path();
-    for (final command in item.commands) {
+    final paths = [Path()];
+    for (final (i, command) in item.commands.indexed) {
+      // Fills draw each subpath on its own, as ratex-svg does: in one path,
+      // overlapping subpaths of opposite winding cancel out and leave holes
+      // (e.g. in \xmapsto).
+      if (item.fill && i > 0 && command is MoveToCommand) paths.add(Path());
+      final path = paths.last;
       switch (command) {
         case MoveToCommand(:final x, :final y):
           path.moveTo(_px(x), _px(y));
@@ -142,7 +147,10 @@ class RatexPainter extends CustomPainter {
       // dimension (1.5 user units at the engine's reference 40px/em, the
       // same ratio ratex-svg uses), clamped so hairlines stay visible.
       ..strokeWidth = (fontSize * 1.5 / 40).clamp(0.5, double.infinity);
-    canvas.drawPath(path.shift(Offset(_px(item.x), _px(item.y))), paint);
+    final offset = Offset(_px(item.x), _px(item.y));
+    for (final path in paths) {
+      canvas.drawPath(path.shift(offset), paint);
+    }
   }
 
   @override

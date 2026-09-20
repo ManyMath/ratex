@@ -432,6 +432,47 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    test('fills each subpath separately but strokes paths whole', () {
+      int drawPathCalls({required bool fill}) {
+        final painter = RatexPainter(
+          DisplayList.fromJson({
+            'width': 1.0,
+            'height': 1.0,
+            'depth': 0.0,
+            'items': [
+              {
+                'type': 'Path',
+                'x': 0.0,
+                'y': 0.0,
+                'fill': fill,
+                'commands': [
+                  {'type': 'MoveTo', 'x': 0.0, 'y': 0.0},
+                  {'type': 'LineTo', 'x': 1.0, 'y': 0.0},
+                  {'type': 'LineTo', 'x': 1.0, 'y': 1.0},
+                  {'type': 'Close'},
+                  {'type': 'MoveTo', 'x': 0.0, 'y': 0.0},
+                  {'type': 'LineTo', 'x': 1.0, 'y': 1.0},
+                  {'type': 'LineTo', 'x': 1.0, 'y': 0.0},
+                  {'type': 'Close'},
+                ],
+                'color': {'r': 0, 'g': 0, 'b': 0, 'a': 1},
+              },
+            ],
+          }),
+          fontSize: 10,
+        );
+        final canvas = TestRecordingCanvas();
+        painter.paint(canvas, const Size(10, 10));
+        return canvas.invocations
+            .where((call) => call.invocation.memberName == #drawPath)
+            .length;
+      }
+
+      // Opposite windings would cancel if filled as one path.
+      expect(drawPathCalls(fill: true), 2);
+      expect(drawPathCalls(fill: false), 1);
+    });
+
     test('shouldRepaint keys on list identity and font size', () {
       const list = DisplayList(items: [], width: 1, height: 1, depth: 0);
       final a = RatexPainter(list, fontSize: 20);
