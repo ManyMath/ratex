@@ -50,8 +50,8 @@ class RatexMath extends StatefulWidget {
   final Widget Function(BuildContext context, RatexException error)?
   errorBuilder;
 
-  /// Shown while the engine initializes (only relevant for the very first
-  /// formula on screen; afterwards rendering is synchronous).
+  /// Shown while the engine initializes. Once [Ratex.ensureInitialized] has
+  /// completed, formulas render synchronously and never show it.
   final WidgetBuilder? loadingBuilder;
 
   /// A screen-reader-friendly description of the formula.
@@ -136,47 +136,68 @@ class _RatexMathState extends State<RatexMath> {
     return '#${argb.substring(2)}${argb.substring(0, 2)}';
   }
 
-  Future<void> _render(Color color) async {
+  /// Renders the formula unless the result for these inputs is current.
+  ///
+  /// Only called from [didChangeDependencies] and [didUpdateWidget], which a
+  /// build always follows, so once the engine is initialized the result is
+  /// applied directly and the formula appears without a loading frame.
+  void _render(Color color) {
     final key = (widget.latex, widget.displayMode, color);
     if (_rendered == key) return;
-    // Set before awaiting so overlapping triggers collapse to one render;
-    // the generation counter drops stale results.
+    // Set before rendering so overlapping triggers collapse to one render;
+    // the generation counter drops stale async results.
     _rendered = key;
     final generation = ++_generation;
+    final latex = widget.latex;
+    final options = RatexOptions(
+      displayMode: widget.displayMode,
+      color: _hex(color),
+    );
+    if (!Ratex.isInitialized) {
+      _renderAsync(latex, options, generation);
+      return;
+    }
     try {
-      final list = await Ratex.renderDisplayList(
-        widget.latex,
-        options: RatexOptions(
-          displayMode: widget.displayMode,
-          color: _hex(color),
-        ),
-      );
-      if (mounted && generation == _generation) {
-        setState(() {
-          _displayList = list;
-          _error = null;
-        });
-      }
+      _settle(Ratex.renderDisplayListSync(latex, options: options), null);
     } on Object catch (e) {
-      // Any failure, engine, loading, or unexpected, must surface through
-      // the error presentation, never as an unhandled async error leaving
-      // the widget permanently blank.
-      final error = e is RatexException
-          ? e
-          : RatexInternalException('rendering failed: $e');
-      // A superseded render must not touch `_rendered`: it now belongs to
-      // the newer render.
-      if (mounted && generation == _generation) {
-        setState(() {
-          _displayList = null;
-          _error = error;
-          // Do not cache failures: the next trigger (dependency change or
-          // widget update) retries, e.g. once the wasm binary loads.
-          _rendered = null;
-        });
-      }
+      _settle(null, _asRatexException(e));
     }
   }
+
+  Future<void> _renderAsync(
+    String latex,
+    RatexOptions options,
+    int generation,
+  ) async {
+    DisplayList? list;
+    RatexException? error;
+    try {
+      list = await Ratex.renderDisplayList(latex, options: options);
+    } on Object catch (e) {
+      error = _asRatexException(e);
+    }
+    // A superseded render must not touch the state, `_rendered` included:
+    // it now belongs to the newer render.
+    if (mounted && generation == _generation) {
+      setState(() => _settle(list, error));
+    }
+  }
+
+  void _settle(DisplayList? list, RatexException? error) {
+    _displayList = list;
+    _error = error;
+    // Do not cache failures: the next trigger (dependency change or widget
+    // update) retries, e.g. once the wasm binary loads.
+    if (error != null) _rendered = null;
+  }
+
+  /// Any failure, engine, loading, or unexpected, must surface through the
+  /// error presentation, never as an unhandled async error leaving the
+  /// widget permanently blank.
+  static RatexException _asRatexException(Object error) =>
+      error is RatexException
+      ? error
+      : RatexInternalException('rendering failed: $error');
 
   @override
   Widget build(BuildContext context) {

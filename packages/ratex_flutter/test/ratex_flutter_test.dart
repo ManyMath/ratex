@@ -118,6 +118,36 @@ void main() {
       expect(box.height, 30);
     });
 
+    testWidgets('paints on the first frame once the engine is initialized', (
+      tester,
+    ) async {
+      await Ratex.ensureInitialized();
+      await tester.pumpWidget(
+        const MaterialApp(home: Center(child: RatexMath('x', fontSize: 20))),
+      );
+
+      // No further pump: the first frame already shows the formula.
+      expect(
+        find.descendant(
+          of: find.byType(RatexMath),
+          matching: find.byType(CustomPaint),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.getSize(find.byType(RatexMath)), const Size(40, 30));
+    });
+
+    testWidgets('shows errors on the first frame once initialized', (
+      tester,
+    ) async {
+      await Ratex.ensureInitialized();
+      await tester.pumpWidget(
+        const MaterialApp(home: Center(child: RatexMath(r'\bad{'))),
+      );
+
+      expect(find.textContaining('Undefined control sequence'), findsOneWidget);
+    });
+
     testWidgets('reports its baseline for baseline alignment', (tester) async {
       const small = Key('small');
       const large = Key('large');

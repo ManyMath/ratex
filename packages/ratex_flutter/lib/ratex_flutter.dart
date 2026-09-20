@@ -22,8 +22,8 @@ abstract final class RatexFlutter {
   /// backend's name (`'ffi'` on native platforms, `'wasm'` on the web).
   ///
   /// Calling this early (e.g. from `main`) surfaces load errors at startup
-  /// and makes every subsequent render synchronous; otherwise the first
-  /// [RatexMath] triggers the same setup lazily.
+  /// and lets every later [RatexMath] render synchronously, with no loading
+  /// frame; otherwise the first [RatexMath] triggers the same setup lazily.
   ///
   /// On the web the engine binary loads, in order of precedence, from
   /// [Ratex.wasmBytes] if already set, then a bundle asset when [wasmAsset]
