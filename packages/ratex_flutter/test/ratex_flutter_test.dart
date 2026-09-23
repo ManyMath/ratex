@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ratex_flutter/ratex_flutter.dart';
 
@@ -227,6 +229,30 @@ void main() {
       await tester.pumpWidget(app('x', 16));
       await tester.pumpAndSettle();
       expect(fake.renderCalls, 2);
+    });
+
+    testWidgets('repaints when system fonts change', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Center(child: RatexMath('x'))),
+      );
+      await tester.pumpAndSettle();
+      final paint = tester.renderObject<RenderCustomPaint>(
+        find.descendant(
+          of: find.byType(RatexMath),
+          matching: find.byType(CustomPaint),
+        ),
+      );
+      expect(paint.debugNeedsPaint, isFalse);
+
+      // Sent by the engine when, e.g., a lazily loaded fallback font arrives.
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        SystemChannels.system.name,
+        SystemChannels.system.codec.encodeMessage(<String, Object?>{
+          'type': 'fontsChange',
+        }),
+        (_) {},
+      );
+      expect(paint.debugNeedsPaint, isTrue);
     });
 
     testWidgets('derives a concise semantic label from the LaTeX source', (

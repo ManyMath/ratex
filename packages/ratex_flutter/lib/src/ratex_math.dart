@@ -233,7 +233,11 @@ class _RatexMathState extends State<RatexMath> {
             : SizedBox(height: widget.fontSize),
       );
     }
-    final painter = RatexPainter(list, fontSize: widget.fontSize);
+    final painter = RatexPainter(
+      list,
+      fontSize: widget.fontSize,
+      repaint: PaintingBinding.instance.systemFonts,
+    );
     return _semantics(
       label: _semanticLabel,
       child: _FormulaBaseline(

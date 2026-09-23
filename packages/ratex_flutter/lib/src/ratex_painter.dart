@@ -13,7 +13,13 @@ import 'package:ratex/ratex.dart';
 /// rects are filled directly, and `Path` items carry their own outline
 /// geometry (radicals, stretchy delimiters).
 class RatexPainter extends CustomPainter {
-  RatexPainter(this.displayList, {required this.fontSize});
+  /// Paints [displayList] at [fontSize] logical pixels per em.
+  ///
+  /// The painter also repaints whenever [repaint] notifies. `RatexMath`
+  /// passes `PaintingBinding.instance.systemFonts`, so glyphs drawn with
+  /// lazily loaded fallback fonts (CJK and emoji on the web) show up once
+  /// those fonts arrive.
+  RatexPainter(this.displayList, {required this.fontSize, super.repaint});
 
   final DisplayList displayList;
 
