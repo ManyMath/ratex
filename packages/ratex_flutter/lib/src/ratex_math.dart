@@ -25,6 +25,7 @@ class RatexMath extends StatefulWidget {
     this.latex, {
     super.key,
     this.fontSize = 24,
+    this.textScaler,
     this.displayMode = true,
     this.color,
     this.errorBuilder,
@@ -36,8 +37,16 @@ class RatexMath extends StatefulWidget {
   /// `\begin{align}...\end{align}` are themselves valid input).
   final String latex;
 
-  /// Logical pixels per em.
+  /// Logical pixels per em, before text scaling.
+  ///
+  /// Like [Text], the formula follows the user's text size setting: the
+  /// painted size is `fontSize` scaled by [textScaler], which defaults to
+  /// the ambient [MediaQuery.textScalerOf].
   final double fontSize;
+
+  /// Scales [fontSize]; defaults to [MediaQuery.textScalerOf]. Pass
+  /// [TextScaler.noScaling] to keep the formula at exactly [fontSize].
+  final TextScaler? textScaler;
 
   /// Display style (`$$...$$`) when true, inline style (`$...$`) when false.
   final bool displayMode;
@@ -213,6 +222,7 @@ class _RatexMathState extends State<RatexMath> {
                 fontSize: widget.fontSize * 0.6,
                 fontFamily: 'monospace',
               ),
+              textScaler: widget.textScaler,
             );
       return _semantics(
         label: 'Could not render $_statusSemanticSubject. ${error.message}',
@@ -221,6 +231,9 @@ class _RatexMathState extends State<RatexMath> {
         child: presentation,
       );
     }
+    // Layout is in em units, so text scaling only changes the paint size.
+    final fontSize = (widget.textScaler ?? MediaQuery.textScalerOf(context))
+        .scale(widget.fontSize);
     final list = _displayList;
     if (list == null) {
       final builder = widget.loadingBuilder;
@@ -228,14 +241,12 @@ class _RatexMathState extends State<RatexMath> {
         label: 'Rendering $_statusSemanticSubject',
         liveRegion: true,
         excludeChildSemantics: builder == null,
-        child: builder != null
-            ? builder(context)
-            : SizedBox(height: widget.fontSize),
+        child: builder != null ? builder(context) : SizedBox(height: fontSize),
       );
     }
     final painter = RatexPainter(
       list,
-      fontSize: widget.fontSize,
+      fontSize: fontSize,
       repaint: PaintingBinding.instance.systemFonts,
     );
     return _semantics(

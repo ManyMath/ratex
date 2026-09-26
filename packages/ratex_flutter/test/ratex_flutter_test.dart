@@ -179,6 +179,33 @@ void main() {
       );
     });
 
+    testWidgets('scales with the ambient text scaler', (tester) async {
+      const scaled = Key('scaled');
+      const fixed = Key('fixed');
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Column(
+              children: [
+                RatexMath('x', key: scaled, fontSize: 20),
+                RatexMath(
+                  'x',
+                  key: fixed,
+                  fontSize: 20,
+                  textScaler: TextScaler.noScaling,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.getSize(find.byKey(scaled)), const Size(80, 60));
+      expect(tester.getSize(find.byKey(fixed)), const Size(40, 30));
+    });
+
     testWidgets('passes displayMode and inherited color to the engine', (
       tester,
     ) async {
