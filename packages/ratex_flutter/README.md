@@ -1,18 +1,27 @@
 # ratex_flutter
 
 KaTeX-compatible math rendering for Flutter, on every platform, including
-the web. Wraps the pure-Dart [`ratex`](../ratex) package (which drives the
-Rust [RaTeX](https://github.com/erweixin/RaTeX) engine) and adds:
+the web. Wraps the pure-Dart
+[`ratex`](https://github.com/ManyMath/ratex/tree/main/packages/ratex) package
+(which drives the Rust [RaTeX](https://github.com/erweixin/RaTeX) engine) and
+adds:
 
 - **`RatexMath`**: a widget that lays out a LaTeX formula and paints it with
-  the bundled KaTeX fonts. Inherits the ambient text color; reports parse
-  errors (with source spans) through `errorBuilder`.
+  the bundled KaTeX fonts. Inherits the ambient text color, scales with the
+  user's text size (`MediaQuery` text scaler, overridable via `textScaler`),
+  and reports its baseline, so inline formulas line up with text in
+  baseline-aligned `Row`s and `WidgetSpan`s. Reports parse errors (with
+  source spans) through `errorBuilder`.
+- **Accessibility**: screen readers announce each formula with a label
+  derived from its LaTeX source (e.g. `Mathematical expression: x^2 + y^2`);
+  pass `semanticLabel` for a spoken description such as
+  `'The quadratic formula'`.
 - **`RatexPainter`**: the underlying `CustomPainter`, for painting display
   lists onto your own canvas.
 - **Automatic native builds**: the `ratex_ffi` Rust crate is compiled by
   [cargokit](https://github.com/ManyMath/cargokit) during `flutter build` on
-  Android, iOS, Linux, macOS, and Windows. Rust is the only extra build-time
-  requirement, and precompiled binaries can remove even that.
+  Android, iOS, Linux, macOS, and Windows. Rust is currently required at
+  build time; precompiled binaries are planned.
 - **Bundled fonts**: the KaTeX fonts ship with the package and are
   referenced as `packages/ratex_flutter/<family>`, so apps need **no** font
   configuration. (Fonts are SIL OFL 1.1; see `lib/fonts/`.)
@@ -45,6 +54,7 @@ Flutter web has no `dart:ffi`, so the same engine runs as WebAssembly:
 
 ## Example
 
-[`example/`](example) is a formula playground: presets, live LaTeX editing,
-font-size slider, display/inline toggle. `flutter run` on any platform
-(see its README for the one-step web setup).
+[`example/`](https://github.com/ManyMath/ratex/tree/main/packages/ratex_flutter/example)
+is a formula playground: presets, live LaTeX editing, font-size slider,
+display/inline toggle. `flutter run` on any platform (see its README for the
+one-step web setup).

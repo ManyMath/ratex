@@ -1,10 +1,8 @@
 name: ratex_flutter
 description: >-
-  KaTeX-compatible math rendering for Flutter with the goal of no additional
-  system dependencies. Integrates the `ratex` package, uses cargokit to build
-  the native Rust RaTeX library automatically, paints display lists onto the
-  Flutter canvas with the bundled KaTeX fonts, and runs on the web via
-  WebAssembly.
+  KaTeX-compatible math rendering for Flutter. Builds the Rust RaTeX engine
+  with cargokit, paints formulas with bundled KaTeX fonts, and runs on the
+  web via WebAssembly.
 version: 0.0.1
 repository: https://github.com/ManyMath/ratex
 issue_tracker: https://github.com/ManyMath/ratex/issues
