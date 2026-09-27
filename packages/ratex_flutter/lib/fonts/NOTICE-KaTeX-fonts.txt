@@ -1,21 +1,16 @@
 KaTeX Font Software — attribution and license notice
 ========================================================
 
-This repository bundles the KaTeX mathematical fonts (files named KaTeX_* with
-extensions .ttf, .woff, or .woff2) for rendering. They are unmodified binaries
-from the KaTeX project: https://github.com/KaTeX/KaTeX
+This package bundles the KaTeX mathematical fonts (the KaTeX_*.ttf files in
+this directory, lib/fonts/) for rendering. They are unmodified binaries from
+the KaTeX project: https://github.com/KaTeX/KaTeX
 
-These font files are NOT licensed under the MIT License in the repository root
+These font files are NOT licensed under the MIT License in the package's
 LICENSE file. They are licensed under the SIL Open Font License, Version 1.1.
 
-Locations in this repository (non-exhaustive; mirrors may exist per platform):
-
-  fonts/
-  platforms/web/fonts/
-  platforms/android/src/main/assets/fonts/
-  platforms/ios/Sources/Ratex/Fonts/
-  platforms/flutter/lib/fonts/
-  platforms/react-native/android/src/main/assets/fonts/
+The same fonts are also compiled into the ratex_ffi engine binary (native
+library and WebAssembly) through the ratex-svg crate's `embed-fonts` feature,
+so SVG output is self-contained; this notice covers those copies too.
 
 Copyright and license notice (verbatim from font metadata; each face uses the
 same copyright holders and OFL reference, and names its own Reserved Font Name
@@ -30,5 +25,6 @@ same copyright holders and OFL reference, and names its own Reserved Font Name
   This license available with a FAQ at:
   http://scripts.sil.org/OFL
 
-Complete text of the SIL Open Font License, Version 1.1: see SIL-OFL-1.1.txt
-in this directory (reproduced from the SPDX license list).
+Complete text of the SIL Open Font License, Version 1.1: see
+LICENSE-KaTeX-fonts.txt in this directory (reproduced from the SPDX license
+list).
