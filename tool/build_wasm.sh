@@ -6,7 +6,15 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 crate="$root/native/ratex-ffi"
-wasm="$crate/target/wasm32-unknown-unknown/release/ratex_ffi.wasm"
+
+# Honor CARGO_TARGET_DIR. Cargo resolves a relative value against the
+# directory it runs in, which is the crate directory (see below).
+target_dir="${CARGO_TARGET_DIR:-target}"
+case "$target_dir" in
+  /*) ;;
+  *) target_dir="$crate/$target_dir" ;;
+esac
+wasm="$target_dir/wasm32-unknown-unknown/release/ratex_ffi.wasm"
 
 if ! rustup target list --installed --toolchain stable | grep -q wasm32-unknown-unknown; then
   echo "Installing the wasm32-unknown-unknown target for the stable toolchain..."
