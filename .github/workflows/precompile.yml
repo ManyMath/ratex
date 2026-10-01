@@ -49,6 +49,8 @@ jobs:
         id: ndk
         with:
           ndk-version: r26d
+          # cargokit looks for the NDK at <sdk>/ndk/<full version>.
+          link-to-sdk: true
       - run: dart pub get
         working-directory: ${{ env.BUILD_TOOL }}
       - name: Precompile
@@ -59,8 +61,8 @@ jobs:
           dart run "$BUILD_TOOL/bin/build_tool.dart" precompile-binaries -v \
             --manifest-dir="$GITHUB_WORKSPACE/native/ratex-ffi" \
             --repository="$REPO" \
-            --android-sdk-location="$ANDROID_SDK_ROOT" \
-            --android-ndk-version="${{ steps.ndk.outputs.ndk-version }}" \
+            --android-sdk-location="$ANDROID_HOME" \
+            --android-ndk-version="${{ steps.ndk.outputs.ndk-full-version }}" \
             --android-min-sdk-version=21 \
             --target aarch64-linux-android \
             --target armv7-linux-androideabi \
