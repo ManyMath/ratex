@@ -5,14 +5,18 @@ name: Precompile binaries
 # ratex_flutter without a Rust toolchain. cargokit verifies each download
 # against the public_key in native/ratex-ffi/cargokit.yaml.
 #
-# Requires two repository secrets:
-#   CARGOKIT_PRIVATE_KEY: the hex private key from `build_tool gen-key`
-#   (GITHUB_TOKEN is provided automatically).
+# Requires one repository secret:
+#   CARGOKIT_PRIVATE_KEY: the hex private key from `build_tool gen-key`.
+# GITHUB_TOKEN is provided automatically; `contents: write` below lets it
+# create the release and upload assets.
 
 on:
   workflow_dispatch:
   push:
     tags: ['v*']
+
+permissions:
+  contents: write
 
 env:
   REPO: ManyMath/ratex
