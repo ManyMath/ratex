@@ -44,6 +44,9 @@ jobs:
 
   android:
     name: Precompile (Android ABIs)
+    # Both jobs get or create the same precompiled_<hash> release without
+    # retrying, so running them concurrently can race to create it.
+    needs: linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
