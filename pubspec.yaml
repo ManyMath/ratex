@@ -47,6 +47,7 @@ melos:
       run: >-
         dart test packages/ratex &&
         flutter test packages/ratex_flutter/test &&
+        flutter test packages/ratex_flutter/example &&
         flutter test apps/ratex_example/test
     native:build:
       description: Build the ratex_ffi shared library (for CLI/dev use).
