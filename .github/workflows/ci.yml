@@ -35,8 +35,9 @@ jobs:
       - run: cargo check --target wasm32-unknown-unknown
       - run: rustup target add aarch64-linux-android
       - run: cargo check --target aarch64-linux-android
-      - run: rustup target add x86_64-pc-windows-gnu
-      - run: cargo check --target x86_64-pc-windows-gnu
+      # cargokit builds Windows with the MSVC target.
+      - run: rustup target add x86_64-pc-windows-msvc
+      - run: cargo check --target x86_64-pc-windows-msvc
 
   analyze-test:
     name: Analyze and test (Dart/Flutter)
