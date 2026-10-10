@@ -78,7 +78,12 @@ binaries, and upstream engine integration.
 ## Development
 
 Driven by [melos](https://melos.invertase.dev) (config lives in the root
-`pubspec.yaml`). After `dart pub get`:
+`pubspec.yaml`). The workspace includes the Flutter plugin and apps, so
+working in this repository requires the Flutter SDK (which bundles Dart); a
+standalone Dart SDK can't resolve it. The `ratex` package itself has no
+Flutter dependency, so projects that depend on it need only Dart.
+
+After `flutter pub get`:
 
 ```sh
 dart run melos run native:build       # build the Rust dylib (release)
