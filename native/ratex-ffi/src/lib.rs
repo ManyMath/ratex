@@ -262,13 +262,15 @@ unsafe fn render_entry(
 
 /// Stack size of the native render worker threads.
 ///
-/// The parser accepts up to 512 levels of nesting, and parsing plus layout
-/// of input that deep needs about 4 MiB of stack in release builds and
-/// 16 MiB in debug builds. Host threads can have far less (Flutter's UI
-/// thread, Dart isolate threads, 1 MiB on some platforms), and a stack
-/// overflow aborts the whole process instead of unwinding. The size is a
-/// virtual reservation that costs nothing until touched; it is smaller on
-/// 32-bit targets, where address space is scarce and frames are smaller.
+/// Parsing, macro expansion, and layout are all recursive. RaTeX 0.1.14
+/// caps input nesting at 32 levels (0.1.13 allowed 512, which needed about
+/// 4 MiB of stack in release builds and 16 MiB in debug builds), but host
+/// threads can be small (Flutter's UI thread, Dart isolate threads, 1 MiB
+/// on some platforms) and a stack overflow aborts the whole process
+/// instead of unwinding, so renders keep generous headroom of their own.
+/// The size is a virtual reservation that costs nothing until touched; it
+/// is smaller on 32-bit targets, where address space is scarce and frames
+/// are smaller.
 #[cfg(not(target_family = "wasm"))]
 const RENDER_STACK_SIZE: usize = if cfg!(target_pointer_width = "64") {
     64 << 20
@@ -828,26 +830,34 @@ mod tests {
 
     #[test]
     fn deep_nesting_does_not_overflow_a_small_host_stack() {
-        // 511 levels is the most the parser accepts; rendering it needs far
-        // more stack than this host thread has.
-        let depth = 511;
-        let inputs = [
-            format!("{}x{}", "{".repeat(depth), "}".repeat(depth)),
-            format!("{}x{}", r"\sqrt{".repeat(depth), "}".repeat(depth)),
-        ];
+        // 32 levels is the most the parser accepts; deeper input must be a
+        // parse error, never a crash, even from a host thread this small.
+        let nested = |depth: usize| {
+            [
+                format!("{}x{}", "{".repeat(depth), "}".repeat(depth)),
+                format!("{}x{}", r"\sqrt{".repeat(depth), "}".repeat(depth)),
+            ]
+        };
+        let cases = [(32, RATEX_STATUS_OK), (511, RATEX_STATUS_PARSE_ERROR)]
+            .map(|(depth, expected)| (nested(depth), expected));
         let host = std::thread::Builder::new()
             .stack_size(256 << 10)
             .spawn(move || {
-                inputs.map(|latex| unsafe {
-                    (
-                        render(ratex_render_display_list, &latex, "").0,
-                        render(ratex_render_svg, &latex, "").0,
-                    )
+                cases.map(|(inputs, expected)| {
+                    let statuses = inputs.map(|latex| unsafe {
+                        (
+                            render(ratex_render_display_list, &latex, "").0,
+                            render(ratex_render_svg, &latex, "").0,
+                        )
+                    });
+                    (statuses, expected)
                 })
             })
             .unwrap();
-        for statuses in host.join().unwrap() {
-            assert_eq!(statuses, (RATEX_STATUS_OK, RATEX_STATUS_OK));
+        for (statuses, expected) in host.join().unwrap() {
+            for status in statuses {
+                assert_eq!(status, (expected, expected));
+            }
         }
     }
 

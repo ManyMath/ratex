@@ -18,14 +18,14 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 # DisplayList pipeline is pure Rust with no system dependencies (no fs, no
 # threads), so it cross-compiles to every native target and to
 # wasm32-unknown-unknown unchanged.
-ratex-parser = "0.1.13"
-ratex-layout = "0.1.13"
-ratex-types = "0.1.13"
+ratex-parser = "0.1.14"
+ratex-layout = "0.1.14"
+ratex-types = "0.1.14"
 # SVG export. `embed-fonts` compiles the KaTeX TTFs into the binary so
 # `embed_glyphs` SVG output needs no font files or CSS for math. It also pulls
 # in ratex-unicode-font, which looks up a system font at render time for
 # characters the KaTeX fonts lack (CJK, emoji).
-ratex-svg = { version = "0.1.13", features = ["embed-fonts"] }
+ratex-svg = { version = "0.1.14", features = ["embed-fonts"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
