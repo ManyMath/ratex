@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:ratex/ratex.dart';
+import 'package:ratex_dart/ratex_dart.dart';
 
 import 'ratex_painter.dart';
 

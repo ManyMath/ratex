@@ -27,7 +27,7 @@ fi
 # web/ ships verbatim with a Flutter web build), matching the default
 # Ratex.wasmUrl of 'ratex_ffi.wasm'; native builds are unaffected.
 destinations=(
-  "$root/packages/ratex/example/web/ratex_ffi.wasm"
+  "$root/packages/ratex_dart/example/web/ratex_ffi.wasm"
   "$root/packages/ratex_flutter/example/web/ratex_ffi.wasm"
   "$root/apps/ratex_example/web/ratex_ffi.wasm"
 )

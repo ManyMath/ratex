@@ -1,6 +1,6 @@
 /// KaTeX-compatible math rendering for Flutter.
 ///
-/// Re-exports the full `package:ratex` API and adds [RatexMath] (the formula
+/// Re-exports the full `package:ratex_dart` API and adds [RatexMath] (the formula
 /// widget), [RatexPainter] (paint display lists yourself), and
 /// [RatexFlutter.ensureInitialized] (eager engine setup with web wasm
 /// loading).
@@ -9,14 +9,14 @@ library;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
-import 'package:ratex/ratex.dart';
+import 'package:ratex_dart/ratex_dart.dart';
 
-export 'package:ratex/ratex.dart';
+export 'package:ratex_dart/ratex_dart.dart';
 
 export 'src/ratex_math.dart';
 export 'src/ratex_painter.dart';
 
-/// Flutter-side conveniences over the `ratex` engine registry.
+/// Flutter-side conveniences over the `ratex_dart` engine registry.
 abstract final class RatexFlutter {
   /// Initializes the rendering engine eagerly and returns the active
   /// backend's name (`'ffi'` on native platforms, `'wasm'` on the web).

@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
-import 'package:ratex/ratex.dart';
+import 'package:ratex_dart/ratex_dart.dart';
 
 /// Paints a RaTeX [DisplayList] onto a canvas.
 ///

@@ -2,7 +2,7 @@
 
 KaTeX-compatible math rendering for Flutter, on every platform, including
 the web. Wraps the pure-Dart
-[`ratex`](https://github.com/ManyMath/ratex/tree/main/packages/ratex) package
+[`ratex_dart`](https://github.com/ManyMath/ratex/tree/main/packages/ratex_dart) package
 (which drives the Rust [RaTeX](https://github.com/erweixin/RaTeX) engine) and
 adds:
 
@@ -37,7 +37,7 @@ await RatexFlutter.ensureInitialized();
 RatexMath(r'\frac{-b \pm \sqrt{b^2-4ac}}{2a}', fontSize: 28)
 ```
 
-The full `package:ratex` API is re-exported: `Ratex.renderDisplayList`,
+The full `package:ratex_dart` API is re-exported: `Ratex.renderDisplayList`,
 `Ratex.renderSvg`, custom backends, options, and models.
 
 ## Web

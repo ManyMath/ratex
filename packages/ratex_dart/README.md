@@ -1,4 +1,4 @@
-# ratex
+# ratex_dart
 
 KaTeX-compatible math rendering for Dart. Pure Dart (no Flutter dependency);
 parses and lays out LaTeX with the Rust [RaTeX](https://github.com/erweixin/RaTeX)
@@ -18,7 +18,7 @@ Two outputs from one API:
 ```dart
 import 'dart:io';
 
-import 'package:ratex/ratex.dart';
+import 'package:ratex_dart/ratex_dart.dart';
 
 final list = await Ratex.renderDisplayList(r'\frac{-b \pm \sqrt{b^2-4ac}}{2a}');
 print(list); // DisplayList(14 items, 7.02em x 2.28em)
@@ -66,12 +66,12 @@ for `substring`), enough to build editor diagnostics.
 
 ```sh
 # CLI: display-list summaries + a self-contained SVG file.
-dart run packages/ratex/example/ratex_example.dart
+dart run packages/ratex_dart/example/ratex_dart_example.dart
 
 # Browser: LaTeX in, SVG out, all client-side.
 dart run melos run native:build:web
-dart compile js packages/ratex/example/web/main.dart -o packages/ratex/example/web/main.dart.js
-python3 -m http.server -d packages/ratex/example/web 8080
+dart compile js packages/ratex_dart/example/web/main.dart -o packages/ratex_dart/example/web/main.dart.js
+python3 -m http.server -d packages/ratex_dart/example/web 8080
 ```
 
 [ratex_flutter]: https://github.com/ManyMath/ratex/tree/main/packages/ratex_flutter

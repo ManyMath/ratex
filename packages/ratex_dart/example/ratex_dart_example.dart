@@ -3,14 +3,14 @@
 // Build the native library first:
 //   cargo build --release --manifest-path native/ratex-ffi/Cargo.toml
 // then, from the repo root:
-//   dart run packages/ratex/example/ratex_example.dart              # summary + quadratic.svg
-//   dart run packages/ratex/example/ratex_example.dart '\sqrt{2}'  # your formula + formula.svg
+//   dart run packages/ratex_dart/example/ratex_dart_example.dart              # summary + quadratic.svg
+//   dart run packages/ratex_dart/example/ratex_dart_example.dart '\sqrt{2}'  # your formula + formula.svg
 //
 // If the library is elsewhere, point to it with RATEX_LIB=/path/to/lib.
 
 import 'dart:io';
 
-import 'package:ratex/ratex.dart';
+import 'package:ratex_dart/ratex_dart.dart';
 
 const _formulas = <String, String>{
   'Quadratic formula': r'\frac{-b \pm \sqrt{b^2-4ac}}{2a}',

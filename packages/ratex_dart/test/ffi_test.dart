@@ -10,7 +10,7 @@ library;
 
 import 'dart:io';
 
-import 'package:ratex/ratex.dart';
+import 'package:ratex_dart/ratex_dart.dart';
 import 'package:test/test.dart';
 
 bool get _nativeAvailable {

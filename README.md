@@ -12,15 +12,15 @@ This is a [melos](https://melos.invertase.dev) monorepo:
 
 | Package | What it is |
 |---|---|
-| [`packages/ratex`](packages/ratex) | Pure Dart (no Flutter); works in CLI tools and browsers. Renders LaTeX to display lists and self-contained SVG over `dart:ffi` natively and WebAssembly on the web, with a pluggable backend registry. |
-| [`packages/ratex_flutter`](packages/ratex_flutter) | Flutter plugin. Builds the native library automatically (via cargokit), bundles the KaTeX fonts, provides the `RatexMath` widget and `RatexPainter`, and re-exports the `ratex` API. |
+| [`packages/ratex_dart`](packages/ratex_dart) | Pure Dart (no Flutter); works in CLI tools and browsers. Renders LaTeX to display lists and self-contained SVG over `dart:ffi` natively and WebAssembly on the web, with a pluggable backend registry. |
+| [`packages/ratex_flutter`](packages/ratex_flutter) | Flutter plugin. Builds the native library automatically (via cargokit), bundles the KaTeX fonts, provides the `RatexMath` widget and `RatexPainter`, and re-exports the `ratex_dart` API. |
 | [`native/ratex-ffi`](native/ratex-ffi) | Rust crate (the portable C ABI behind both backends). One `(pointer, length)`-based ABI compiled as cdylib/staticlib for FFI and as wasm32-unknown-unknown for the web, no wasm-bindgen glue. |
 | [`apps/ratex_example`](apps/ratex_example) | Minimal cross-platform Flutter application demonstrating one `RatexMath` expression without product state or external design-system dependencies. |
 
 ## Quick start (Dart CLI)
 
 ```dart
-import 'package:ratex/ratex.dart';
+import 'package:ratex_dart/ratex_dart.dart';
 
 final list = await Ratex.renderDisplayList(r'\frac{-b \pm \sqrt{b^2-4ac}}{2a}');
 print(list); // DisplayList(14 items, 7.02em x 2.28em)
@@ -46,12 +46,12 @@ app's `web/` directory.
 
 ```sh
 # CLI: display-list summaries + a self-contained SVG file.
-dart run packages/ratex/example/ratex_example.dart
+dart run packages/ratex_dart/example/ratex_dart_example.dart
 
 # Browser (no Flutter): LaTeX -> SVG, all client-side.
 melos run native:build:web
-dart compile js packages/ratex/example/web/main.dart -o packages/ratex/example/web/main.dart.js
-python3 -m http.server -d packages/ratex/example/web 8080
+dart compile js packages/ratex_dart/example/web/main.dart -o packages/ratex_dart/example/web/main.dart.js
+python3 -m http.server -d packages/ratex_dart/example/web 8080
 
 # Flutter: formula playground with presets and live editing.
 cd packages/ratex_flutter/example && flutter run          # native
@@ -80,7 +80,7 @@ binaries, and upstream engine integration.
 Driven by [melos](https://melos.invertase.dev) (config lives in the root
 `pubspec.yaml`). The workspace includes the Flutter plugin and apps, so
 working in this repository requires the Flutter SDK (which bundles Dart); a
-standalone Dart SDK can't resolve it. The `ratex` package itself has no
+standalone Dart SDK can't resolve it. The `ratex_dart` package itself has no
 Flutter dependency, so projects that depend on it need only Dart.
 
 After `flutter pub get`:

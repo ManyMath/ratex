@@ -2,14 +2,14 @@
 //
 // Build and serve from the repo root:
 //   melos run native:build:web                       # ratex_ffi.wasm
-//   dart compile js packages/ratex/example/web/main.dart \
-//     -o packages/ratex/example/web/main.dart.js
-//   python3 -m http.server -d packages/ratex/example/web 8080
+//   dart compile js packages/ratex_dart/example/web/main.dart \
+//     -o packages/ratex_dart/example/web/main.dart.js
+//   python3 -m http.server -d packages/ratex_dart/example/web 8080
 // then open http://localhost:8080.
 
 import 'dart:js_interop';
 
-import 'package:ratex/ratex.dart';
+import 'package:ratex_dart/ratex_dart.dart';
 import 'package:web/web.dart';
 
 void main() {

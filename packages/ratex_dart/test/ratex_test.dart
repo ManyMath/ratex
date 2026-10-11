@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'dart:convert';
 
-import 'package:ratex/ratex.dart';
-import 'package:ratex/src/backends/status.dart';
+import 'package:ratex_dart/ratex_dart.dart';
+import 'package:ratex_dart/src/backends/status.dart';
 import 'package:test/test.dart';
 
 /// A stand-in backend for exercising the registry without native code.

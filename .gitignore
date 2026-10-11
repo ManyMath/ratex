@@ -22,8 +22,8 @@ target/
 .melos_tool/
 
 # Built wasm + compiled web example artifacts (rebuild with `melos run native:build:web`)
-packages/ratex/example/web/ratex_ffi.wasm
-packages/ratex/example/web/main.dart.js*
+packages/ratex_dart/example/web/ratex_ffi.wasm
+packages/ratex_dart/example/web/main.dart.js*
 packages/ratex_flutter/example/web/ratex_ffi.wasm
 apps/ratex_example/web/ratex_ffi.wasm
 

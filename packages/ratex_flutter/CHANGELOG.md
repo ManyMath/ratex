@@ -16,7 +16,7 @@
 - cargokit integration on Android, iOS, Linux, macOS, and Windows: the
   `ratex_ffi` crate builds automatically during `flutter build`. Rust is
   currently required; precompiled binaries are planned.
-- Web support through the `ratex` package's WebAssembly backend;
+- Web support through the `ratex_dart` package's WebAssembly backend;
   `RatexFlutter.ensureInitialized` can load the binary from an asset.
-- Re-exports the full `package:ratex` API.
+- Re-exports the full `package:ratex_dart` API.
 - Formula-playground example app (native + web).

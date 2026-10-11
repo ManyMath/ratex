@@ -1,4 +1,4 @@
-name: ratex
+name: ratex_dart
 description: >-
   KaTeX-compatible math rendering in pure Dart (no Flutter dependency), using
   the Rust RaTeX engine over FFI on native platforms and WebAssembly on the

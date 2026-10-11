@@ -48,7 +48,7 @@ android {
 }
 
 // Build the shared `ratex_ffi` Rust crate via cargokit. The crate lives at the
-// repo root and is shared with the pure-Dart `ratex` package; cargokit drops
+// repo root and is shared with the pure-Dart `ratex_dart` package; cargokit drops
 // the per-ABI libratex_ffi.so into jniLibs so it is packaged in the APK and
 // resolvable by DynamicLibrary.open('libratex_ffi.so').
 apply from: "../cargokit/gradle/plugin.gradle"
