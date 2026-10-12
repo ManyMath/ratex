@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ratex_flutter/ratex_flutter.dart';
+import 'package:ratex/ratex.dart';
 
 void main() {
   runApp(const RatexExampleApp());

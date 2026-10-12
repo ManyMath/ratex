@@ -1,6 +1,6 @@
 # cargokit configuration for the ratex_ffi crate.
 #
-# Precompiled binaries let consumers build ratex_flutter without Rust: cargokit
+# Precompiled binaries let consumers build ratex without Rust: cargokit
 # downloads a signed prebuilt library matching the crate hash instead of running
 # cargo. The public key below verifies those downloads; the matching private key
 # signs them in CI (stored as the CARGOKIT_PRIVATE_KEY secret - see

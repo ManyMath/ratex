@@ -9,7 +9,7 @@ Two outputs from one API:
 
 - **Display lists**: the engine's flat list of drawing commands (glyphs,
   lines, rects, paths) in em units, for painting onto any canvas. This is what
-  [`ratex_flutter`][ratex_flutter] draws.
+  [`ratex`][ratex] draws.
 - **Self-contained SVG**: glyph outlines embedded from the compiled-in KaTeX
   fonts, so math renders anywhere with no fonts installed or served.
   (Characters the KaTeX fonts lack, such as CJK or emoji in `\text{}`,
@@ -43,7 +43,7 @@ cargo build --release --manifest-path native/ratex-ffi/Cargo.toml
 The loader finds it via `Ratex.nativeLibraryPath`, the `RATEX_LIB`
 environment variable, the OS loader path / Flutter bundle, or the crate's
 `target/` directory during development. (Flutter apps get all of this
-automatically through `ratex_flutter` + cargokit.) These paths refer to this
+automatically through `ratex` + cargokit.) These paths refer to this
 monorepo; when using the package elsewhere, build the crate wherever you
 vendor it and point `RATEX_LIB` or `Ratex.nativeLibraryPath` at the built
 library.
@@ -74,4 +74,4 @@ dart compile js packages/ratex_dart/example/web/main.dart -o packages/ratex_dart
 python3 -m http.server -d packages/ratex_dart/example/web 8080
 ```
 
-[ratex_flutter]: https://github.com/ManyMath/ratex/tree/main/packages/ratex_flutter
+[ratex]: https://github.com/ManyMath/ratex/tree/main/packages/ratex

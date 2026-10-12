@@ -1,5 +1,5 @@
 name: ratex_example
-description: A minimal cross-platform application using ratex_flutter.
+description: A minimal cross-platform application using ratex.
 publish_to: none
 version: 1.0.0+1
 
@@ -11,7 +11,7 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
-  ratex_flutter: ^0.0.1
+  ratex: ^0.0.1
 
 dev_dependencies:
   flutter_test:

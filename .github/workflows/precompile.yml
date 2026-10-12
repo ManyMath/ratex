@@ -2,7 +2,7 @@ name: Precompile binaries
 
 # Builds signed prebuilt ratex_ffi libraries and uploads them to a
 # `precompiled_<crate-hash>` GitHub release, so consumers can build
-# ratex_flutter without a Rust toolchain. cargokit verifies each download
+# ratex without a Rust toolchain. cargokit verifies each download
 # against the public_key in native/ratex-ffi/cargokit.yaml.
 #
 # Requires one repository secret:
@@ -20,7 +20,7 @@ permissions:
 
 env:
   REPO: ManyMath/ratex
-  BUILD_TOOL: packages/ratex_flutter/cargokit/build_tool
+  BUILD_TOOL: packages/ratex/cargokit/build_tool
 
 jobs:
   linux:

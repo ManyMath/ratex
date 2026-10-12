@@ -55,11 +55,11 @@ jobs:
       - name: Check formatting
         run: >-
           dart format --output none --set-exit-if-changed
-          packages/ratex_dart packages/ratex_flutter/lib packages/ratex_flutter/test
-          packages/ratex_flutter/example/lib packages/ratex_flutter/example/test
+          packages/ratex_dart packages/ratex/lib packages/ratex/test
+          packages/ratex/example/lib packages/ratex/example/test
           apps/ratex_example/lib apps/ratex_example/test
       - run: dart analyze packages/ratex_dart
-      - run: flutter analyze packages/ratex_flutter
+      - run: flutter analyze packages/ratex
       - run: flutter analyze apps/ratex_example
       - name: Build the native engine for tests
         run: cargo build --manifest-path native/ratex-ffi/Cargo.toml
@@ -67,8 +67,8 @@ jobs:
         env:
           # Fail, rather than skip, the FFI tests if the library isn't found.
           RATEX_REQUIRE_NATIVE: '1'
-      - run: flutter test packages/ratex_flutter/test
-      - run: flutter test packages/ratex_flutter/example
+      - run: flutter test packages/ratex/test
+      - run: flutter test packages/ratex/example
       - run: flutter test apps/ratex_example/test
       - name: Compile the pure-Dart web example
         run: >-
@@ -83,10 +83,10 @@ jobs:
       matrix:
         include:
           - target: linux
-            app: packages/ratex_flutter/example
+            app: packages/ratex/example
             flags: --debug
           - target: apk
-            app: packages/ratex_flutter/example
+            app: packages/ratex/example
             flags: --debug
           - target: web
             app: apps/ratex_example

@@ -38,7 +38,7 @@ class NativeLibrary {
       }
     }
     // On Apple platforms the static library may be force-loaded into the
-    // process (see the ratex_flutter podspecs); probe for our symbol.
+    // process (see the ratex podspecs); probe for our symbol.
     if (Platform.isMacOS || Platform.isIOS) {
       try {
         final process = DynamicLibrary.process();
@@ -59,7 +59,7 @@ class NativeLibrary {
     // Resolved by the OS loader search path / the Flutter app bundle.
     yield _fileName;
     if (Platform.isMacOS || Platform.isIOS) {
-      yield 'ratex_flutter.framework/ratex_flutter';
+      yield 'ratex.framework/ratex';
     }
     // Developer builds: walk up from the working directory looking for the
     // crate's build output (repo root, package dir, example dir, ...).

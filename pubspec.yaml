@@ -8,8 +8,8 @@ environment:
 
 workspace:
   - packages/ratex_dart
-  - packages/ratex_flutter
-  - packages/ratex_flutter/example
+  - packages/ratex
+  - packages/ratex/example
   - apps/ratex_example
 
 dev_dependencies:
@@ -24,30 +24,30 @@ melos:
       description: Analyze all packages.
       run: >-
         dart analyze packages/ratex_dart &&
-        flutter analyze packages/ratex_flutter &&
+        flutter analyze packages/ratex &&
         flutter analyze apps/ratex_example
     format:
       description: Check Dart formatting.
       run: >-
         dart format --output none --set-exit-if-changed
-        packages/ratex_dart packages/ratex_flutter/lib packages/ratex_flutter/test
-        packages/ratex_flutter/example/lib packages/ratex_flutter/example/test
+        packages/ratex_dart packages/ratex/lib packages/ratex/test
+        packages/ratex/example/lib packages/ratex/example/test
         apps/ratex_example/lib
         apps/ratex_example/test
     format:fix:
       description: Apply Dart formatting.
       run: >-
         dart format
-        packages/ratex_dart packages/ratex_flutter/lib packages/ratex_flutter/test
-        packages/ratex_flutter/example/lib packages/ratex_flutter/example/test
+        packages/ratex_dart packages/ratex/lib packages/ratex/test
+        packages/ratex/example/lib packages/ratex/example/test
         apps/ratex_example/lib
         apps/ratex_example/test
     test:
       description: Run Dart and Flutter tests.
       run: >-
         dart test packages/ratex_dart &&
-        flutter test packages/ratex_flutter/test &&
-        flutter test packages/ratex_flutter/example &&
+        flutter test packages/ratex/test &&
+        flutter test packages/ratex/example &&
         flutter test apps/ratex_example/test
     native:build:
       description: Build the ratex_ffi shared library (for CLI/dev use).

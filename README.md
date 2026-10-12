@@ -13,7 +13,7 @@ This is a [melos](https://melos.invertase.dev) monorepo:
 | Package | What it is |
 |---|---|
 | [`packages/ratex_dart`](packages/ratex_dart) | Pure Dart (no Flutter); works in CLI tools and browsers. Renders LaTeX to display lists and self-contained SVG over `dart:ffi` natively and WebAssembly on the web, with a pluggable backend registry. |
-| [`packages/ratex_flutter`](packages/ratex_flutter) | Flutter plugin. Builds the native library automatically (via cargokit), bundles the KaTeX fonts, provides the `RatexMath` widget and `RatexPainter`, and re-exports the `ratex_dart` API. |
+| [`packages/ratex`](packages/ratex) | Flutter plugin. Builds the native library automatically (via cargokit), bundles the KaTeX fonts, provides the `RatexMath` widget and `RatexPainter`, and re-exports the `ratex_dart` API. |
 | [`native/ratex-ffi`](native/ratex-ffi) | Rust crate (the portable C ABI behind both backends). One `(pointer, length)`-based ABI compiled as cdylib/staticlib for FFI and as wasm32-unknown-unknown for the web, no wasm-bindgen glue. |
 | [`apps/ratex_example`](apps/ratex_example) | Minimal cross-platform Flutter application demonstrating one `RatexMath` expression without product state or external design-system dependencies. |
 
@@ -32,7 +32,7 @@ Build the native library first: `cargo build --release --manifest-path native/ra
 ## Quick start (Flutter)
 
 ```dart
-import 'package:ratex_flutter/ratex_flutter.dart';
+import 'package:ratex/ratex.dart';
 
 RatexMath(r'\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}', fontSize: 28)
 ```
@@ -54,8 +54,8 @@ dart compile js packages/ratex_dart/example/web/main.dart -o packages/ratex_dart
 python3 -m http.server -d packages/ratex_dart/example/web 8080
 
 # Flutter: formula playground with presets and live editing.
-cd packages/ratex_flutter/example && flutter run          # native
-cd packages/ratex_flutter/example && flutter run -d chrome # web
+cd packages/ratex/example && flutter run          # native
+cd packages/ratex/example && flutter run -d chrome # web
 
 # Minimal application integration.
 cd apps/ratex_example && flutter run -d chrome
@@ -101,4 +101,4 @@ wasm32-unknown-unknown`).
 ## Licenses
 
 MIT (see [LICENSE](LICENSE)). The bundled KaTeX fonts are SIL OFL 1.1 (see
-`packages/ratex_flutter/lib/fonts/`). RaTeX itself is MIT.
+`packages/ratex/lib/fonts/`). RaTeX itself is MIT.
