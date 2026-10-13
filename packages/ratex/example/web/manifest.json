@@ -1,6 +1,6 @@
 {
-    "name": "ratex_flutter_example",
-    "short_name": "ratex_flutter_example",
+    "name": "ratex_playground",
+    "short_name": "ratex_playground",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ratex_flutter_example/main.dart';
+import 'package:ratex_playground/main.dart';
 
 void main() {
   testWidgets('playground shows its controls', (tester) async {

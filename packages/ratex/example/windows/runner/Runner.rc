@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.manymath" "\0"
-            VALUE "FileDescription", "ratex_flutter_example" "\0"
+            VALUE "FileDescription", "ratex_playground" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "ratex_flutter_example" "\0"
+            VALUE "InternalName", "ratex_playground" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.manymath. All rights reserved." "\0"
-            VALUE "OriginalFilename", "ratex_flutter_example.exe" "\0"
-            VALUE "ProductName", "ratex_flutter_example" "\0"
+            VALUE "OriginalFilename", "ratex_playground.exe" "\0"
+            VALUE "ProductName", "ratex_playground" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

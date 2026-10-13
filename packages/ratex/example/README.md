@@ -1,4 +1,4 @@
-# ratex_flutter_example
+# ratex_playground
 
 A formula playground for the `ratex` plugin: preset formulas, a
 LaTeX editor with live rendering, a font-size slider, and a display/inline
