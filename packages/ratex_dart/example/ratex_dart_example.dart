@@ -1,7 +1,7 @@
 // Renders classic formulas to display lists and a self-contained SVG file.
 //
 // Build the native library first:
-//   cargo build --release --manifest-path native/ratex-ffi/Cargo.toml
+//   cargo build --release --manifest-path packages/ratex/rust/Cargo.toml
 // then, from the repo root:
 //   dart run packages/ratex_dart/example/ratex_dart_example.dart              # summary + quadratic.svg
 //   dart run packages/ratex_dart/example/ratex_dart_example.dart '\sqrt{2}'  # your formula + formula.svg

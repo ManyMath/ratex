@@ -5,7 +5,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-crate="$root/native/ratex-ffi"
+crate="$root/packages/ratex/rust"
 
 # Honor CARGO_TARGET_DIR. Cargo resolves a relative value against the
 # directory it runs in, which is the crate directory (see below).

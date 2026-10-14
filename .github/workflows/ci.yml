@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: native/ratex-ffi
+        working-directory: packages/ratex/rust
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -27,7 +27,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: native/ratex-ffi
+          workspaces: packages/ratex/rust
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
@@ -50,7 +50,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: native/ratex-ffi
+          workspaces: packages/ratex/rust
       - run: flutter pub get
       - name: Check formatting
         run: >-
@@ -62,7 +62,7 @@ jobs:
       - run: flutter analyze packages/ratex
       - run: flutter analyze apps/ratex_example
       - name: Build the native engine for tests
-        run: cargo build --manifest-path native/ratex-ffi/Cargo.toml
+        run: cargo build --manifest-path packages/ratex/rust/Cargo.toml
       - run: dart test packages/ratex_dart
         env:
           # Fail, rather than skip, the FFI tests if the library isn't found.
@@ -99,7 +99,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: native/ratex-ffi
+          workspaces: packages/ratex/rust
       - name: Install Linux desktop build dependencies
         if: matrix.target == 'linux'
         run: |

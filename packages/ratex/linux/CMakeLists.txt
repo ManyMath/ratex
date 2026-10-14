@@ -8,8 +8,8 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 include("${CMAKE_CURRENT_SOURCE_DIR}/../cargokit/cmake/cargokit.cmake")
 
 # apply_cargokit(<target> <manifest_dir, relative to this file> <lib_name> <force-link symbol>)
-# The crate lives at the repo root, shared with the pure-Dart `ratex_dart` package.
-apply_cargokit(${PROJECT_NAME} ../../../native/ratex-ffi ratex_ffi "")
+# The crate lives in this package (rust/); ratex_dart loads the same library.
+apply_cargokit(${PROJECT_NAME} ../rust ratex_ffi "")
 
 set(ratex_bundled_libraries
   "${${PROJECT_NAME}_cargokit_lib}"

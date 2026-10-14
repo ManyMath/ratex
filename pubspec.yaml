@@ -52,10 +52,10 @@ melos:
     native:build:
       description: Build the ratex_ffi shared library (for CLI/dev use).
       # cd into the crate so its rust-toolchain.toml is honored.
-      run: cd native/ratex-ffi && cargo build --release
+      run: cd packages/ratex/rust && cargo build --release
     native:test:
       description: Run the Rust crate tests.
-      run: cd native/ratex-ffi && cargo test
+      run: cd packages/ratex/rust && cargo test
     native:build:web:
       description: >-
         Build ratex_ffi for wasm32-unknown-unknown and copy the .wasm where the

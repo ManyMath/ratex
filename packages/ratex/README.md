@@ -45,8 +45,8 @@ The full `package:ratex_dart` API is re-exported: `Ratex.renderDisplayList`,
 Flutter web has no `dart:ffi`, so the same engine runs as WebAssembly:
 
 1. Build the binary: `melos run native:build:web` (in this repo), or
-   `cargo build --release --target wasm32-unknown-unknown` in
-   `native/ratex-ffi`.
+   `cargo build --release --target wasm32-unknown-unknown` in this package's
+   `rust/` directory.
 2. Serve `ratex_ffi.wasm` from your app's `web/` directory (files there ship
    verbatim with a web build), matching the default `Ratex.wasmUrl`. Or
    bundle it as an asset and pass `wasmAsset:` to

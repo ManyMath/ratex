@@ -10,7 +10,7 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/../cargokit/cmake/cargokit.cmake")
 
-apply_cargokit(${PROJECT_NAME} ../../../native/ratex-ffi ratex_ffi ratex_version_ptr)
+apply_cargokit(${PROJECT_NAME} ../rust ratex_ffi ratex_version_ptr)
 
 set(ratex_bundled_libraries
   "${${PROJECT_NAME}_cargokit_lib}"

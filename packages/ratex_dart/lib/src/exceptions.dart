@@ -51,7 +51,7 @@ class NoBackendAvailableException extends RatexException {
     super.message =
         'No ratex backend is available in this environment. On native '
         'platforms build the ratex_ffi library (cargo build --manifest-path '
-        'native/ratex-ffi/Cargo.toml); on the web provide the ratex_ffi.wasm '
+        'packages/ratex/rust/Cargo.toml); on the web provide the ratex_ffi.wasm '
         'binary (see Ratex.wasmUrl / Ratex.wasmBytes).',
   ]);
 

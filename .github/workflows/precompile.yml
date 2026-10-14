@@ -3,7 +3,7 @@ name: Precompile binaries
 # Builds signed prebuilt ratex_ffi libraries and uploads them to a
 # `precompiled_<crate-hash>` GitHub release, so consumers can build
 # ratex without a Rust toolchain. cargokit verifies each download
-# against the public_key in native/ratex-ffi/cargokit.yaml.
+# against the public_key in packages/ratex/rust/cargokit.yaml.
 #
 # Requires one repository secret:
 #   CARGOKIT_PRIVATE_KEY: the hex private key from `build_tool gen-key`.
@@ -38,7 +38,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           dart run "$BUILD_TOOL/bin/build_tool.dart" precompile-binaries -v \
-            --manifest-dir="$GITHUB_WORKSPACE/native/ratex-ffi" \
+            --manifest-dir="$GITHUB_WORKSPACE/packages/ratex/rust" \
             --repository="$REPO" \
             --target x86_64-unknown-linux-gnu
 
@@ -66,7 +66,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           dart run "$BUILD_TOOL/bin/build_tool.dart" precompile-binaries -v \
-            --manifest-dir="$GITHUB_WORKSPACE/native/ratex-ffi" \
+            --manifest-dir="$GITHUB_WORKSPACE/packages/ratex/rust" \
             --repository="$REPO" \
             --android-sdk-location="$ANDROID_HOME" \
             --android-ndk-version="${{ steps.ndk.outputs.ndk-full-version }}" \

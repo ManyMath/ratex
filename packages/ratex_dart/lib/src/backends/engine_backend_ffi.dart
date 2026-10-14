@@ -65,9 +65,13 @@ class NativeLibrary {
     // crate's build output (repo root, package dir, example dir, ...).
     var dir = Directory.current.absolute;
     for (var i = 0; i < 6; i++) {
-      final base =
-          '${dir.path}${Platform.pathSeparator}native'
-          '${Platform.pathSeparator}ratex-ffi${Platform.pathSeparator}target';
+      final base = [
+        dir.path,
+        'packages',
+        'ratex',
+        'rust',
+        'target',
+      ].join(Platform.pathSeparator);
       yield '$base${Platform.pathSeparator}release'
           '${Platform.pathSeparator}$_fileName';
       yield '$base${Platform.pathSeparator}debug'
@@ -170,7 +174,7 @@ class FfiBackend implements RatexBackend {
     if (!isAvailable) {
       throw const NoBackendAvailableException(
         'The ratex_ffi library could not be loaded. Build it with: '
-        'cargo build --release --manifest-path native/ratex-ffi/Cargo.toml '
+        'cargo build --release --manifest-path packages/ratex/rust/Cargo.toml '
         '(or point RATEX_LIB / Ratex.nativeLibraryPath at it).',
       );
     }

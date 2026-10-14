@@ -37,7 +37,7 @@ Build the Rust library once (only build-time requirement is
 [Rust](https://rustup.rs)):
 
 ```sh
-cargo build --release --manifest-path native/ratex-ffi/Cargo.toml
+cargo build --release --manifest-path packages/ratex/rust/Cargo.toml
 ```
 
 The loader finds it via `Ratex.nativeLibraryPath`, the `RATEX_LIB`

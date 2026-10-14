@@ -14,7 +14,7 @@ This is a [melos](https://melos.invertase.dev) monorepo:
 |---|---|
 | [`packages/ratex_dart`](packages/ratex_dart) | Pure Dart (no Flutter); works in CLI tools and browsers. Renders LaTeX to display lists and self-contained SVG over `dart:ffi` natively and WebAssembly on the web, with a pluggable backend registry. |
 | [`packages/ratex`](packages/ratex) | Flutter plugin. Builds the native library automatically (via cargokit), bundles the KaTeX fonts, provides the `RatexMath` widget and `RatexPainter`, and re-exports the `ratex_dart` API. |
-| [`native/ratex-ffi`](native/ratex-ffi) | Rust crate (the portable C ABI behind both backends). One `(pointer, length)`-based ABI compiled as cdylib/staticlib for FFI and as wasm32-unknown-unknown for the web, no wasm-bindgen glue. |
+| [`packages/ratex/rust`](packages/ratex/rust) | Rust crate `ratex_ffi` (the portable C ABI behind both backends), shipped inside the Flutter plugin so cargokit can build it from a published package. One `(pointer, length)`-based ABI compiled as cdylib/staticlib for FFI and as wasm32-unknown-unknown for the web, no wasm-bindgen glue. |
 | [`apps/ratex_example`](apps/ratex_example) | Minimal cross-platform Flutter application demonstrating one `RatexMath` expression without product state or external design-system dependencies. |
 
 ## Quick start (Dart CLI)
@@ -27,7 +27,7 @@ print(list); // DisplayList(14 items, 7.02em x 2.28em)
 final svg = await Ratex.renderSvg(r'E = mc^2'); // self-contained, fonts embedded
 ```
 
-Build the native library first: `cargo build --release --manifest-path native/ratex-ffi/Cargo.toml`.
+Build the native library first: `cargo build --release --manifest-path packages/ratex/rust/Cargo.toml`.
 
 ## Quick start (Flutter)
 

@@ -1,7 +1,7 @@
 /// End-to-end tests against the real `ratex_ffi` native library.
 ///
 /// Build it first:
-///   cargo build --manifest-path native/ratex-ffi/Cargo.toml
+///   cargo build --manifest-path packages/ratex/rust/Cargo.toml
 /// Tests self-skip when the library is missing, as on a fresh checkout,
 /// unless RATEX_REQUIRE_NATIVE=1 (set in CI) makes that a failure. Point
 /// RATEX_LIB at the library if it lives somewhere unusual.

@@ -17,11 +17,11 @@ automatically via cargokit and renders RaTeX display lists onto a Canvas.
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
 
-  # Build the shared `ratex_ffi` Rust crate (static lib) via cargokit and
+  # Build the `ratex_ffi` Rust crate in ../rust (static lib) via cargokit and
   # force-link it into the plugin framework.
   s.script_phase = {
     :name => 'Build ratex_ffi',
-    :script => 'sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../../../native/ratex-ffi ratex_ffi',
+    :script => 'sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../rust ratex_ffi',
     :execution_position => :before_compile,
     :input_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony'],
     :output_files => ['${BUILT_PRODUCTS_DIR}/libratex_ffi.a'],
