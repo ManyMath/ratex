@@ -38,5 +38,9 @@ abstract class RatexBackend {
   String get engineVersion;
 
   /// Releases resources. The backend may be [initialize]d again afterwards.
+  ///
+  /// `Ratex.reset` disposes every initialized backend and forgets their
+  /// initialization. Disposing a registered backend directly does not, so
+  /// `Ratex` would keep treating it as ready; go through `Ratex.reset`.
   Future<void> dispose();
 }
