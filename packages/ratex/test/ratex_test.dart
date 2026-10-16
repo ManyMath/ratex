@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -411,6 +412,72 @@ void main() {
   });
 
   group('RatexPainter', () {
+    // Every non-fallback font ID RaTeX emits (ratex-font's FontId).
+    const engineFontIds = [
+      'AMS-Regular',
+      'Caligraphic-Regular',
+      'Fraktur-Bold',
+      'Fraktur-Regular',
+      'Main-Bold',
+      'Main-BoldItalic',
+      'Main-Italic',
+      'Main-Regular',
+      'Math-BoldItalic',
+      'Math-Italic',
+      'SansSerif-Bold',
+      'SansSerif-Italic',
+      'SansSerif-Regular',
+      'Script-Regular',
+      'Size1-Regular',
+      'Size2-Regular',
+      'Size3-Regular',
+      'Size4-Regular',
+      'Typewriter-Regular',
+    ];
+
+    test('maps each font ID to its own bundled family', () {
+      expect(
+        RatexPainter.fontFamilyFor('Math-Italic'),
+        'packages/ratex/KaTeX_Math-Italic',
+      );
+      expect(
+        RatexPainter.fontFamilyFor('Main-BoldItalic'),
+        'packages/ratex/KaTeX_Main-BoldItalic',
+      );
+      for (final fallback in [
+        'CJK-Regular',
+        'CJK-Fallback',
+        'Emoji-Fallback',
+      ]) {
+        expect(RatexPainter.fontFamilyFor(fallback), isNull);
+      }
+    });
+
+    test('the pubspec declares a family for every engine font ID', () {
+      // Tests run from the package or, in CI, from the repository root.
+      final dir = [
+        '.',
+        'packages/ratex',
+      ].firstWhere((d) => File('$d/lib/src/ratex_painter.dart').existsSync());
+      final pubspec = File('$dir/pubspec.yaml').readAsStringSync();
+      for (final id in engineFontIds) {
+        expect(
+          pubspec,
+          contains(
+            '- family: KaTeX_$id\n'
+            '      fonts:\n'
+            '        - asset: lib/fonts/KaTeX_$id.ttf\n',
+          ),
+          reason: id,
+        );
+        expect(
+          File('$dir/lib/fonts/KaTeX_$id.ttf').existsSync(),
+          isTrue,
+          reason: id,
+        );
+      }
+    });
+
     testWidgets('paints a display list without errors', (tester) async {
       final painter = RatexPainter(
         DisplayList.fromJson({

@@ -45,61 +45,69 @@ flutter:
 
   # The KaTeX fonts (SIL OFL 1.1 - see lib/fonts/LICENSE-KaTeX-fonts.txt).
   # Declared here so consuming apps get them bundled automatically; the
-  # painter references them as 'packages/ratex/<family>', so apps do
-  # NOT need to re-declare anything.
+  # painter references them as 'packages/ratex/<family>', so apps do NOT need
+  # to re-declare anything. Each file is its own family, named after the
+  # display list's font ID: the KaTeX TTFs do not flag their italic faces as
+  # italic, so selecting faces by FontStyle would apply a synthetic slant on
+  # top of the real one.
   fonts:
-    - family: KaTeX_AMS
+    - family: KaTeX_AMS-Regular
       fonts:
         - asset: lib/fonts/KaTeX_AMS-Regular.ttf
-    - family: KaTeX_Caligraphic
+    - family: KaTeX_Caligraphic-Bold
+      fonts:
+        - asset: lib/fonts/KaTeX_Caligraphic-Bold.ttf
+    - family: KaTeX_Caligraphic-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Caligraphic-Regular.ttf
-        - asset: lib/fonts/KaTeX_Caligraphic-Bold.ttf
-          weight: 700
-    - family: KaTeX_Fraktur
+    - family: KaTeX_Fraktur-Bold
+      fonts:
+        - asset: lib/fonts/KaTeX_Fraktur-Bold.ttf
+    - family: KaTeX_Fraktur-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Fraktur-Regular.ttf
-        - asset: lib/fonts/KaTeX_Fraktur-Bold.ttf
-          weight: 700
-    - family: KaTeX_Main
+    - family: KaTeX_Main-Bold
+      fonts:
+        - asset: lib/fonts/KaTeX_Main-Bold.ttf
+    - family: KaTeX_Main-BoldItalic
+      fonts:
+        - asset: lib/fonts/KaTeX_Main-BoldItalic.ttf
+    - family: KaTeX_Main-Italic
+      fonts:
+        - asset: lib/fonts/KaTeX_Main-Italic.ttf
+    - family: KaTeX_Main-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Main-Regular.ttf
-        - asset: lib/fonts/KaTeX_Main-Bold.ttf
-          weight: 700
-        - asset: lib/fonts/KaTeX_Main-Italic.ttf
-          style: italic
-        - asset: lib/fonts/KaTeX_Main-BoldItalic.ttf
-          weight: 700
-          style: italic
-    - family: KaTeX_Math
+    - family: KaTeX_Math-BoldItalic
+      fonts:
+        - asset: lib/fonts/KaTeX_Math-BoldItalic.ttf
+    - family: KaTeX_Math-Italic
       fonts:
         - asset: lib/fonts/KaTeX_Math-Italic.ttf
-          style: italic
-        - asset: lib/fonts/KaTeX_Math-BoldItalic.ttf
-          weight: 700
-          style: italic
-    - family: KaTeX_SansSerif
+    - family: KaTeX_SansSerif-Bold
+      fonts:
+        - asset: lib/fonts/KaTeX_SansSerif-Bold.ttf
+    - family: KaTeX_SansSerif-Italic
+      fonts:
+        - asset: lib/fonts/KaTeX_SansSerif-Italic.ttf
+    - family: KaTeX_SansSerif-Regular
       fonts:
         - asset: lib/fonts/KaTeX_SansSerif-Regular.ttf
-        - asset: lib/fonts/KaTeX_SansSerif-Bold.ttf
-          weight: 700
-        - asset: lib/fonts/KaTeX_SansSerif-Italic.ttf
-          style: italic
-    - family: KaTeX_Script
+    - family: KaTeX_Script-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Script-Regular.ttf
-    - family: KaTeX_Size1
+    - family: KaTeX_Size1-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Size1-Regular.ttf
-    - family: KaTeX_Size2
+    - family: KaTeX_Size2-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Size2-Regular.ttf
-    - family: KaTeX_Size3
+    - family: KaTeX_Size3-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Size3-Regular.ttf
-    - family: KaTeX_Size4
+    - family: KaTeX_Size4-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Size4-Regular.ttf
-    - family: KaTeX_Typewriter
+    - family: KaTeX_Typewriter-Regular
       fonts:
         - asset: lib/fonts/KaTeX_Typewriter-Regular.ttf

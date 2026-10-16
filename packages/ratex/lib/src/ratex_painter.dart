@@ -7,9 +7,9 @@ import 'package:ratex_dart/ratex_dart.dart';
 ///
 /// Display-list coordinates are in em units; every coordinate is multiplied
 /// by [fontSize] (logical pixels per em). Glyphs are drawn as single-character
-/// paragraphs using the KaTeX fonts bundled with this package (referenced as
-/// `packages/ratex/<family>`, so consuming apps need no font setup);
-/// the CJK/emoji fallback IDs use the platform's default font. Lines and
+/// paragraphs using the KaTeX fonts bundled with this package (see
+/// [fontFamilyFor]; consuming apps need no font setup); the CJK/emoji
+/// fallback IDs use the platform's default font. Lines and
 /// rects are filled directly, and `Path` items carry their own outline
 /// geometry (radicals, stretchy delimiters).
 class RatexPainter extends CustomPainter {
@@ -56,18 +56,26 @@ class RatexPainter extends CustomPainter {
     }
   }
 
+  /// The bundled font family for a display-list font ID (e.g. `Math-Italic`
+  /// maps to `packages/ratex/KaTeX_Math-Italic`), or null for the CJK/emoji
+  /// fallback IDs.
+  ///
+  /// Every KaTeX font file is declared as a family of its own and painted
+  /// with the default weight and style. Selecting faces by [FontStyle] does
+  /// not work for these fonts: none of the files is flagged italic, so a
+  /// requested italic style would be synthesized as an extra slant.
+  static String? fontFamilyFor(String fontId) =>
+      KatexFontId.parse(fontId).family == null
+      ? null
+      : 'packages/ratex/KaTeX_$fontId';
+
   void _paintGlyph(Canvas canvas, GlyphPathItem glyph) {
-    final fontId = KatexFontId.parse(glyph.font);
-    final family = fontId.family == null
-        ? null
-        : 'packages/ratex/${fontId.family}';
+    final family = fontFamilyFor(glyph.font);
     final sizePx = glyph.scale * fontSize;
     final style = ui.TextStyle(
       color: Color(glyph.color.toArgb()),
       fontSize: sizePx,
       fontFamily: family,
-      fontWeight: fontId.bold ? FontWeight.bold : FontWeight.normal,
-      fontStyle: fontId.italic ? FontStyle.italic : FontStyle.normal,
     );
     final builder =
         ui.ParagraphBuilder(
