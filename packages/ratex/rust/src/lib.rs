@@ -31,7 +31,7 @@
 //! object `{"message": string, "start": number|null, "end": number|null}`
 //! with byte offsets into the input, for editor diagnostics.
 
-use ratex_layout::{layout, to_display_list, LayoutOptions};
+use ratex_layout::{layout, to_display_list, validate_layout, LayoutOptions};
 use ratex_parser::Parser;
 use ratex_types::color::Color;
 use ratex_types::display_item::{DisplayItem, DisplayList};
@@ -436,6 +436,12 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayLi
         layout_options = layout_options.with_color(color);
     }
     let layout_box = layout(&nodes, &layout_options);
+    // Caps the display list before it is built: small input can describe
+    // millions of items (dashed array rules repeat along a \rule's height),
+    // and running out of memory aborts the process. Reported like the
+    // parser's own resource-limit errors.
+    validate_layout(&layout_box)
+        .map_err(|message| error_buffer(RATEX_STATUS_PARSE_ERROR, &message, None))?;
     let mut display_list = to_display_list(&layout_box);
     sanitize_display_list(&mut display_list);
     Ok(display_list)
@@ -858,6 +864,18 @@ mod tests {
             for status in statuses {
                 assert_eq!(status, (expected, expected));
             }
+        }
+    }
+
+    #[test]
+    fn oversized_layouts_are_rejected() {
+        // One dashed rule per ~0.3em of a million-em-tall array: millions of
+        // display items from 55 bytes of input (taller ones exhaust memory).
+        let latex = r"\begin{array}{c:c}a&\rule{1em}{1000000em}\end{array}";
+        for f in [ratex_render_display_list, ratex_render_svg] {
+            let (status, payload) = unsafe { render(f, latex, "") };
+            assert_eq!(status, RATEX_STATUS_PARSE_ERROR, "{payload}");
+            assert!(payload.contains("resource limit"), "{payload}");
         }
     }
 
