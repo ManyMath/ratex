@@ -1,9 +1,10 @@
 name: Precompile binaries
 
-# Builds signed prebuilt ratex_ffi libraries and uploads them to a
-# `precompiled_<crate-hash>` GitHub release, so consumers can build
-# ratex without a Rust toolchain. cargokit verifies each download
-# against the public_key in packages/ratex/rust/cargokit.yaml.
+# Builds signed prebuilt ratex_ffi libraries for every platform cargokit can
+# download them for (Linux, Windows, macOS, iOS and Android) and uploads them
+# to a `precompiled_<crate-hash>` GitHub release, so consumers can build ratex
+# without a Rust toolchain. cargokit verifies each download against the
+# public_key in packages/ratex/rust/cargokit.yaml.
 #
 # Requires one repository secret:
 #   CARGOKIT_PRIVATE_KEY: the hex private key from `build_tool gen-key`.
@@ -18,41 +19,122 @@ on:
 permissions:
   contents: write
 
+# Queue overlapping runs instead of letting them race to create the same
+# release. A run for an unchanged crate finds its assets uploaded and skips
+# them.
+concurrency:
+  group: precompile
+  cancel-in-progress: false
+
 env:
+  # The release host. Must match url_prefix in cargokit.yaml and the
+  # repository check on the release job.
   REPO: ManyMath/ratex
   BUILD_TOOL: packages/ratex/cargokit/build_tool
+  CRATE_DIR: packages/ratex/rust
 
 jobs:
-  linux:
-    name: Precompile (Linux x86_64)
-    runs-on: ubuntu-latest
+  release:
+    name: Create release
+    # Only the url_prefix repository can publish, so forks skip this job,
+    # and with it every job that needs it.
+    if: github.repository == 'ManyMath/ratex'
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
       - run: dart pub get
         working-directory: ${{ env.BUILD_TOOL }}
-      - name: Precompile
+      # cargokit gets or creates the release without retrying, so parallel
+      # build jobs would race to create it. Create it once here, named after
+      # the crate hash cargokit itself computes.
+      - name: Create the precompiled_<hash> release
         env:
-          PRIVATE_KEY: ${{ secrets.CARGOKIT_PRIVATE_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          dart run "$BUILD_TOOL/bin/build_tool.dart" precompile-binaries -v \
-            --manifest-dir="$GITHUB_WORKSPACE/packages/ratex/rust" \
-            --repository="$REPO" \
-            --target x86_64-unknown-linux-gnu
+          cat > "$RUNNER_TEMP/crate_hash.dart" <<'EOF'
+          import 'package:build_tool/src/crate_hash.dart';
 
-  android:
-    name: Precompile (Android ABIs)
-    # Both jobs get or create the same precompiled_<hash> release without
-    # retrying, so running them concurrently can race to create it.
-    needs: linux
-    runs-on: ubuntu-latest
+          void main(List<String> args) => print(CrateHash.compute(args.single));
+          EOF
+          hash=$(dart --packages="$BUILD_TOOL/.dart_tool/package_config.json" \
+            "$RUNNER_TEMP/crate_hash.dart" "$GITHUB_WORKSPACE/$CRATE_DIR")
+          if [[ ! $hash =~ ^[0-9a-f]{32}$ ]]; then
+            echo "Unexpected crate hash: $hash" >&2
+            exit 1
+          fi
+          tag="precompiled_$hash"
+          if gh release view "$tag" --repo "$REPO" > /dev/null 2>&1; then
+            echo "$tag already exists"
+          else
+            # cargokit's own title and body. --latest=false keeps these
+            # releases out of the repository's "Latest" slot.
+            gh release create "$tag" --repo "$REPO" --target "$GITHUB_SHA" \
+              --title "Precompiled binaries ${hash:0:8}" \
+              --notes "Precompiled binaries for crate ratex_ffi, crate hash $hash." \
+              --latest=false
+          fi
+
+  precompile:
+    name: Precompile (${{ matrix.name }})
+    needs: release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Each entry uploads different targets, so let the others finish if one
+      # fails. A rerun skips targets that are already uploaded.
+      fail-fast: false
+      matrix:
+        include:
+          # Plain cargo here can only link the host arch, and the library
+          # would need the runner's glibc (2.34+). With --glibc-version,
+          # cargokit builds through cargo-zigbuild instead, which links
+          # against glibc 2.17 and cross-links arm64 too.
+          - name: Linux x86_64 + arm64
+            os: ubuntu-24.04
+            targets: x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu
+            glibc: '2.17'
+          # cargokit uses the NDK's linux-x86_64 toolchain on Linux, so keep
+          # this on an x64 runner.
+          - name: Android
+            os: ubuntu-24.04
+            targets: >-
+              aarch64-linux-android armv7-linux-androideabi
+              x86_64-linux-android i686-linux-android
+            android: true
+          # Apple targets need Xcode. The arm64 runner builds the x86_64
+          # slices too.
+          - name: macOS + iOS
+            os: macos-26
+            targets: >-
+              aarch64-apple-darwin x86_64-apple-darwin
+              aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+          # MSVC targets need Visual Studio. The image includes the ARM64
+          # build tools, so the x64 runner builds arm64 too.
+          - name: Windows x86_64 + arm64
+            os: windows-2025
+            targets: x86_64-pc-windows-msvc aarch64-pc-windows-msvc
+    defaults:
+      run:
+        # Git Bash on Windows.
+        shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: nttld/setup-ndk@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+      # Pinned to a master commit: the action's `stable` branch is
+      # regenerated, and commits outside master get garbage-collected.
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (2026-10-16)
+        with:
+          toolchain: stable
+          targets: ${{ matrix.targets }}
+      # cargokit installs cargo-zigbuild itself but not Zig.
+      - name: Install Zig
+        if: matrix.glibc
+        run: |
+          python3 -m venv "$RUNNER_TEMP/zig"
+          "$RUNNER_TEMP/zig/bin/pip" install --quiet ziglang==0.17.0
+          echo "CARGO_ZIGBUILD_PYTHON_PATH=$RUNNER_TEMP/zig/bin/python" >> "$GITHUB_ENV"
+      - uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
+        if: matrix.android
         id: ndk
         with:
           ndk-version: r26d
@@ -64,14 +146,50 @@ jobs:
         env:
           PRIVATE_KEY: ${{ secrets.CARGOKIT_PRIVATE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGETS: ${{ matrix.targets }}
+          GLIBC: ${{ matrix.glibc }}
+          NDK_VERSION: ${{ steps.ndk.outputs.ndk-full-version }}
         run: |
+          args=()
+          for target in $TARGETS; do
+            args+=(--target "$target")
+          done
+          # Only the Linux entry sets this: cargokit would build any
+          # non-Android target with cargo-zigbuild once it's given.
+          if [ -n "$GLIBC" ]; then
+            args+=(--glibc-version="$GLIBC")
+          fi
+          if [ -n "$NDK_VERSION" ]; then
+            args+=(
+              --android-sdk-location="$ANDROID_HOME"
+              --android-ndk-version="$NDK_VERSION"
+              --android-min-sdk-version=21
+            )
+          fi
           dart run "$BUILD_TOOL/bin/build_tool.dart" precompile-binaries -v \
-            --manifest-dir="$GITHUB_WORKSPACE/packages/ratex/rust" \
+            --manifest-dir="$GITHUB_WORKSPACE/$CRATE_DIR" \
             --repository="$REPO" \
-            --android-sdk-location="$ANDROID_HOME" \
-            --android-ndk-version="${{ steps.ndk.outputs.ndk-full-version }}" \
-            --android-min-sdk-version=21 \
-            --target aarch64-linux-android \
-            --target armv7-linux-androideabi \
-            --target x86_64-linux-android \
-            --target i686-linux-android
+            "${args[@]}"
+
+  verify:
+    name: Verify downloads
+    needs: precompile
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+      - run: dart pub get
+        working-directory: ${{ env.BUILD_TOOL }}
+      # Downloads every binary the way consumers do and checks it against the
+      # public key in cargokit.yaml. precompile-binaries only checks each
+      # signature against its own key, so this is what catches a
+      # CARGOKIT_PRIVATE_KEY that doesn't match the committed public key.
+      - name: Verify binaries
+        run: |
+          dart run "$BUILD_TOOL/bin/build_tool.dart" verify-binaries \
+            --manifest-dir="$GITHUB_WORKSPACE/$CRATE_DIR" | tee "$RUNNER_TEMP/verify.txt"
+          # verify-binaries exits 0 either way, and also checks riscv64,
+          # which this workflow doesn't build.
+          if grep -v riscv64 "$RUNNER_TEMP/verify.txt" | grep -E 'MISSING|INVALID'; then
+            exit 1
+          fi
