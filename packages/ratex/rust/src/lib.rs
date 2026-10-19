@@ -405,15 +405,24 @@ unsafe fn read_options(ptr: *const u8, len: usize) -> Result<RenderOptions, Rate
 }
 
 fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayList, RatexBuffer> {
-    let source = strip_outer_math_delimiters(latex);
-    let offset = source.as_ptr() as usize - latex.as_ptr() as usize;
-    let nodes = Parser::new(source).parse().map_err(|e| {
+    let raw_source = strip_outer_math_delimiters(latex);
+    let raw_offset = raw_source.as_ptr() as usize - latex.as_ptr() as usize;
+    let normalized = normalize_compat_environments(raw_source);
+    let (source, span_offset): (&str, Option<usize>) = match &normalized {
+        std::borrow::Cow::Borrowed(s) => (s, Some(raw_offset)),
+        std::borrow::Cow::Owned(s) => (s.as_str(), None),
+    };
+    let mut parser = Parser::new(source);
+    register_compat_macros(&mut parser, source);
+    let nodes = parser.parse().map_err(|e| {
         error_buffer(
             RATEX_STATUS_PARSE_ERROR,
             &e.message,
-            e.loc
-                .as_ref()
-                .and_then(|l| input_span(source, offset, l.start, l.end)),
+            span_offset.and_then(|offset| {
+                e.loc
+                    .as_ref()
+                    .and_then(|l| input_span(source, offset, l.start, l.end))
+            }),
         )
     })?;
     let style = if options.display_mode {
@@ -447,12 +456,153 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayLi
     Ok(display_list)
 }
 
+/// Built-in compatibility macros for Project Gutenberg / Distributed
+/// Proofreaders `.tex` corpora, classical trig/calculus notation, and
+/// interactive sub-expression bounding-box tagging (`\ratexBox`,
+/// `\ratexHighlight`).
+///
+/// Registered in the parser's `MacroExpander` only when referenced in
+/// `source` and not explicitly defined via `\newcommand`/`\def`, so standard
+/// LaTeX inputs pay zero overhead and preserve exact byte-offset spans.
+const COMPAT_MACROS: &[(&str, &str)] = &[
+    // Distributed Proofreaders & classical textbook shorthands
+    ("\\ds", "\\displaystyle"),
+    ("\\efrac", "\\tfrac"),
+    ("\\Frac", "\\frac"),
+    ("\\dint", "\\displaystyle\\int"),
+    ("\\sqrtp", "\\sqrt"),
+    ("\\DELTA", "\\delta"),
+    ("\\EPSILON", "\\epsilon"),
+    // Inverse & hyperbolic trig functions absent from KaTeX's default op table
+    ("\\arcsec", "\\operatorname{arcsec}"),
+    ("\\arccsc", "\\operatorname{arccsc}"),
+    ("\\arccot", "\\operatorname{arccot}"),
+    ("\\sech", "\\operatorname{sech}"),
+    ("\\csch", "\\operatorname{csch}"),
+    ("\\arsinh", "\\operatorname{arsinh}"),
+    ("\\arcosh", "\\operatorname{arcosh}"),
+    ("\\artanh", "\\operatorname{artanh}"),
+    // Capitalized operator variants used in 19th/early-20th century TeX transcriptions
+    ("\\Sum", "\\sum"),
+    ("\\Prod", "\\prod"),
+    ("\\Lim", "\\lim"),
+    ("\\Log", "\\log"),
+    ("\\Sin", "\\sin"),
+    ("\\Cos", "\\cos"),
+    ("\\Tan", "\\tan"),
+    ("\\Cot", "\\cot"),
+    ("\\Sec", "\\sec"),
+    ("\\Csc", "\\csc"),
+    ("\\Arcsin", "\\arcsin"),
+    ("\\Arccos", "\\arccos"),
+    ("\\Arctan", "\\arctan"),
+    // Distributed Proofreaders editorial/proofing markup inside math mode
+    ("\\DPtypo", "{#2}"),
+    ("\\DPchg", "{#2}"),
+    ("\\DPmod", "{#2}"),
+    ("\\DPnote", ""),
+    ("\\First", "{#1}"),
+    ("\\Inum", "{#1}"),
+    // Zero-padding sub-expression bounding-box and highlight helpers for
+    // interactive equation manipulation (emits DisplayItem::Rect in DisplayList
+    // and <rect> in SVG without altering math-mode spacing).
+    ("\\ratexBox", "\\htmlStyle{background-color:#1;}{#2}"),
+    (
+        "\\ratexHighlight",
+        "\\htmlStyle{color:#1;background-color:#2;}{#3}",
+    ),
+];
+
+fn register_compat_macros(parser: &mut Parser, source: &str) {
+    if !source.contains('\\') {
+        return;
+    }
+    for &(name, expansion) in COMPAT_MACROS {
+        if contains_control_word(source, name) && !defines_command(source, name) {
+            parser.gullet.set_text_macro(name, expansion);
+        }
+    }
+}
+
+/// Checks whether `source` contains the LaTeX control word `name` (e.g. `\ds`)
+/// followed by a non-alphabetic boundary, so `\ds` does not match `\displaystyle`.
+fn contains_control_word(source: &str, name: &str) -> bool {
+    let mut rest = source;
+    while let Some(idx) = rest.find(name) {
+        let after = &rest[idx + name.len()..];
+        let next_is_alpha = after
+            .as_bytes()
+            .first()
+            .is_some_and(|b| b.is_ascii_alphabetic());
+        if !next_is_alpha {
+            return true;
+        }
+        rest = after;
+    }
+    false
+}
+
+/// Returns `true` if `source` explicitly defines `name` via `\newcommand`,
+/// `\renewcommand`, `\providecommand`, or `\def` so compat defaults never
+/// collide with user definitions.
+fn defines_command(source: &str, name: &str) -> bool {
+    for prefix in [
+        "\\newcommand",
+        "\\renewcommand",
+        "\\providecommand",
+        "\\def",
+        "\\gdef",
+        "\\edef",
+        "\\xdef",
+    ] {
+        let mut rest = source;
+        while let Some(idx) = rest.find(prefix) {
+            let after_prefix = rest[idx + prefix.len()..].trim_start();
+            let after_brace = after_prefix
+                .strip_prefix('{')
+                .map(str::trim_start)
+                .unwrap_or(after_prefix);
+            if let Some(tail) = after_brace.strip_prefix(name) {
+                if !tail
+                    .as_bytes()
+                    .first()
+                    .is_some_and(|b| b.is_ascii_alphabetic())
+                {
+                    return true;
+                }
+            }
+            rest = &rest[idx + prefix.len()..];
+        }
+    }
+    false
+}
+
+/// Normalizes Distributed Proofreaders display environments (`DPalign*`,
+/// `DPgather*`) into standard KaTeX/RaTeX `aligned`/`gathered` environments,
+/// borrowing `source` unchanged whenever those environments are absent.
+fn normalize_compat_environments(source: &str) -> std::borrow::Cow<'_, str> {
+    if !source.contains("DPalign") && !source.contains("DPgather") {
+        return std::borrow::Cow::Borrowed(source);
+    }
+    let normalized = source
+        .replace("DPalign*", "aligned")
+        .replace("DPalign", "aligned")
+        .replace("DPgather*", "gathered")
+        .replace("DPgather", "gathered");
+    std::borrow::Cow::Owned(normalized)
+}
+
 /// Same trimming as `ratex_parser::parse` (surrounding whitespace, then one
-/// pair of `$$...$$` or `$...$`), done here so parse-error spans, which are
-/// relative to the stripped text, can be mapped back onto the input.
+/// pair of `$$...$$`, `$...$`, `\[...\]`, or `\(...\)`), done here so
+/// parse-error spans, which are relative to the stripped text, can be mapped
+/// back onto the input.
 fn strip_outer_math_delimiters(input: &str) -> &str {
     let s = input.trim();
-    if s.len() >= 4 && s.starts_with("$$") && s.ends_with("$$") {
+    if s.len() >= 4
+        && ((s.starts_with("$$") && s.ends_with("$$"))
+            || (s.starts_with(r"\[") && s.ends_with(r"\]"))
+            || (s.starts_with(r"\(") && s.ends_with(r"\)")))
+    {
         return s[2..s.len() - 2].trim();
     }
     if s.len() >= 2 && s.starts_with('$') && s.ends_with('$') {
@@ -903,5 +1053,47 @@ mod tests {
         let color = &value["items"][0]["color"];
         assert!((color["r"].as_f64().unwrap() - 1.0).abs() < 1e-6);
         assert!(color["g"].as_f64().unwrap().abs() < 1e-6);
+    }
+
+    #[test]
+    fn compat_macros_render_project_gutenberg_and_classical_math() {
+        let samples = [
+            r"\ds \efrac{1}{2} + \Frac{3}{4}",
+            r"\dint_0^{\pi} \Sin x \, dx = 2",
+            r"\arcsec x + \arccsc y + \arccot z + \sech u + \csch v",
+            r"\arsinh x + \arcosh y + \artanh z",
+            r"\sqrtp{x^2 + 1} + \DELTA x + \EPSILON",
+            r"\DPtypo{bad}{\frac{dy}{dx}} = \DPchg{old}{2x} + \DPmod{a}{b} + \First{C} + \Inum{1}",
+            r"\begin{DPalign*} y &= x^2 \\ \frac{dy}{dx} &= 2x \end{DPalign*}",
+            r"\[ \Sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6} \]",
+            r"\( \Lim_{x \to 0} \frac{\Sin x}{x} = 1 \)",
+            r"\newcommand{\ds}{x^2} \ds + 1",
+        ];
+        for sample in samples {
+            let (status, payload) = unsafe { render(ratex_render_display_list, sample, "") };
+            assert_eq!(status, RATEX_STATUS_OK, "{sample}: {payload}");
+        }
+    }
+
+    #[test]
+    fn ratex_box_and_highlight_emit_subterm_bounding_boxes() {
+        let latex = r"\ratexBox{#3b82f626}{\frac{dy}{dx}} = \ratexHighlight{#ef4444}{#fee2e2}{2x}";
+        let (status, json) = unsafe { render(ratex_render_display_list, latex, "") };
+        assert_eq!(status, RATEX_STATUS_OK, "{json}");
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let items = value["items"].as_array().unwrap();
+        let rects: Vec<_> = items
+            .iter()
+            .filter(|item| item["type"] == "Rect")
+            .collect();
+        assert_eq!(rects.len(), 2, "expected 2 bounding-box Rect items: {json}");
+        for rect in rects {
+            assert!(rect["width"].as_f64().unwrap() > 0.0);
+            assert!(rect["height"].as_f64().unwrap() > 0.0);
+        }
+
+        let (svg_status, svg) = unsafe { render(ratex_render_svg, latex, "") };
+        assert_eq!(svg_status, RATEX_STATUS_OK);
+        assert!(svg.contains("<rect"));
     }
 }
