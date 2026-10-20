@@ -464,10 +464,15 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayLi
 /// Registered in the parser's `MacroExpander` only when referenced in
 /// `source` and not explicitly defined via `\newcommand`/`\def`, so standard
 /// LaTeX inputs pay zero overhead and preserve exact byte-offset spans.
+///
+/// Expansions follow the `\newcommand`s in the PG `.tex` preambles. Text macro
+/// arity is inferred from the longest `#1`, `#2`, ... run in the body, so a
+/// body that drops an argument must still mention it (`\@secondoftwo{#1}{#2}`
+/// rather than `#2`).
 const COMPAT_MACROS: &[(&str, &str)] = &[
     // Distributed Proofreaders & classical textbook shorthands
     ("\\ds", "\\displaystyle"),
-    ("\\efrac", "\\tfrac"),
+    ("\\efrac", "\\frac"),
     ("\\Frac", "\\frac"),
     ("\\dint", "\\displaystyle\\int"),
     ("\\sqrtp", "\\sqrt"),
@@ -482,27 +487,31 @@ const COMPAT_MACROS: &[(&str, &str)] = &[
     ("\\arsinh", "\\operatorname{arsinh}"),
     ("\\arcosh", "\\operatorname{arcosh}"),
     ("\\artanh", "\\operatorname{artanh}"),
-    // Capitalized operator variants used in 19th/early-20th century TeX transcriptions
+    // Capitalized operator variants used in 19th/early-20th century TeX
+    // transcriptions. The capital marks a principal value (Hardy's Log), so it
+    // is kept rather than folded into \log, \sin, ...
     ("\\Sum", "\\sum"),
     ("\\Prod", "\\prod"),
     ("\\Lim", "\\lim"),
-    ("\\Log", "\\log"),
-    ("\\Sin", "\\sin"),
-    ("\\Cos", "\\cos"),
-    ("\\Tan", "\\tan"),
-    ("\\Cot", "\\cot"),
-    ("\\Sec", "\\sec"),
-    ("\\Csc", "\\csc"),
-    ("\\Arcsin", "\\arcsin"),
-    ("\\Arccos", "\\arccos"),
-    ("\\Arctan", "\\arctan"),
-    // Distributed Proofreaders editorial/proofing markup inside math mode
-    ("\\DPtypo", "{#2}"),
-    ("\\DPchg", "{#2}"),
-    ("\\DPmod", "{#2}"),
-    ("\\DPnote", ""),
-    ("\\First", "{#1}"),
-    ("\\Inum", "{#1}"),
+    ("\\Log", "\\operatorname{Log}"),
+    ("\\Sin", "\\operatorname{Sin}"),
+    ("\\Cos", "\\operatorname{Cos}"),
+    ("\\Tan", "\\operatorname{Tan}"),
+    ("\\Cot", "\\operatorname{Cot}"),
+    ("\\Sec", "\\operatorname{Sec}"),
+    ("\\Csc", "\\operatorname{Csc}"),
+    ("\\Arcsin", "\\operatorname{arc\\,sin}"),
+    ("\\Arccos", "\\operatorname{arc\\,cos}"),
+    ("\\Arctan", "\\operatorname{arc\\,tan}"),
+    // Distributed Proofreaders editorial markup: \DPtypo{original}{corrected},
+    // \DPchg and \DPmod likewise keep the second argument, \DPnote{...} is a
+    // transcriber's note that never renders.
+    ("\\DPtypo", "\\@secondoftwo{#1}{#2}"),
+    ("\\DPchg", "\\@secondoftwo{#1}{#2}"),
+    ("\\DPmod", "\\@secondoftwo{#1}{#2}"),
+    ("\\DPnote", "\\@firstoftwo{}{#1}"),
+    ("\\First", "\\textsc{#1}"),
+    ("\\Inum", "\\textup{#1}"),
     // Zero-padding sub-expression bounding-box and highlight helpers for
     // interactive equation manipulation (emits DisplayItem::Rect in DisplayList
     // and <rect> in SVG without altering math-mode spacing).
@@ -1075,6 +1084,34 @@ mod tests {
         }
     }
 
+    /// The characters a formula paints, in display-list order.
+    fn glyphs(latex: &str) -> String {
+        let (status, json) = unsafe { render(ratex_render_display_list, latex, "") };
+        assert_eq!(status, RATEX_STATUS_OK, "{latex}: {json}");
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        value["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|item| item["char_code"].as_u64())
+            .map(|code| char::from_u32(code as u32).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn compat_macros_drop_the_arguments_their_pg_definitions_drop() {
+        assert_eq!(glyphs(r"\DPtypo{a}{b}"), "b");
+        assert_eq!(glyphs(r"\DPchg{old}{new}"), "new");
+        assert_eq!(glyphs(r"\DPmod{x}{y} + 1"), "y+1");
+        assert_eq!(glyphs(r"x\DPnote{a transcriber's note}"), "x");
+        assert_eq!(glyphs(r"\efrac{1}{2}"), glyphs(r"\frac{1}{2}"));
+        assert_eq!(glyphs(r"\DELTA"), glyphs(r"\delta"));
+        assert_eq!(glyphs(r"\Log z"), "Logz");
+        assert_eq!(glyphs(r"\Sin x"), "Sinx");
+        // A formula's own definition wins over the compat default.
+        assert_eq!(glyphs(r"\newcommand{\DPtypo}[2]{#1} \DPtypo{a}{b}"), "a");
+    }
+
     #[test]
     fn ratex_box_and_highlight_emit_subterm_bounding_boxes() {
         let latex = r"\ratexBox{#3b82f626}{\frac{dy}{dx}} = \ratexHighlight{#ef4444}{#fee2e2}{2x}";
@@ -1082,10 +1119,7 @@ mod tests {
         assert_eq!(status, RATEX_STATUS_OK, "{json}");
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
         let items = value["items"].as_array().unwrap();
-        let rects: Vec<_> = items
-            .iter()
-            .filter(|item| item["type"] == "Rect")
-            .collect();
+        let rects: Vec<_> = items.iter().filter(|item| item["type"] == "Rect").collect();
         assert_eq!(rects.len(), 2, "expected 2 bounding-box Rect items: {json}");
         for rect in rects {
             assert!(rect["width"].as_f64().unwrap() > 0.0);
