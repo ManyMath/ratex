@@ -455,6 +455,7 @@ name = "ratex_ffi"
 version = "0.0.1"
 dependencies = [
  "ratex-layout",
+ "ratex-lexer",
  "ratex-parser",
  "ratex-svg",
  "ratex-types",

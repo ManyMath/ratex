@@ -18,6 +18,7 @@ crate-type = ["cdylib", "staticlib", "rlib"]
 # DisplayList pipeline is pure Rust with no system dependencies (no fs, no
 # threads), so it cross-compiles to every native target and to
 # wasm32-unknown-unknown unchanged.
+ratex-lexer = "0.1.15"
 ratex-parser = "0.1.15"
 ratex-layout = "0.1.15"
 ratex-types = "0.1.15"

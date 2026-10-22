@@ -27,11 +27,31 @@
 //!   the `RATEX_UNICODE_FONT` environment variable) and become `<text>`
 //!   elements that rely on the viewer's fonts on wasm32.
 //!
+//! Sub-expression boxes: `\ratexBox{id}{body}` renders `body` exactly as if
+//! it were not wrapped and reports where it landed; `\ratexHighlight{color}
+//! {id}{body}` does the same and paints a `color` rect behind the box. Ids
+//! match `[A-Za-z0-9_.:-]+` and need not be unique. Boxes are reported
+//! outermost first, in source order:
+//! - DisplayList JSON gains a top-level `"boxes"` array (omitted when the
+//!   formula has no boxes, so other payloads are unchanged), each entry
+//!   `{"id", "x", "y", "width", "height", "start"?, "end"?}` in the same em
+//!   coordinates as the items (y down, origin at the top-left of the
+//!   formula's box). `start`/`end` are the byte range of the body in the
+//!   input, inside its braces, when the body was typed there.
+//! - SVG gets one `<rect data-ratex-box="id" x y width height
+//!   [data-ratex-start data-ratex-end] fill="none" pointer-events="all"/>`
+//!   per box at the end of the document, in user units, so inner boxes are
+//!   on top for hit testing.
+//!
 //! On error the buffer's status is non-zero and the payload is a small JSON
 //! object `{"message": string, "start": number|null, "end": number|null}`
 //! with byte offsets into the input, for editor diagnostics.
 
+mod boxes;
+
+use boxes::SubtermBox;
 use ratex_layout::{layout, to_display_list, validate_layout, LayoutOptions};
+use ratex_parser::macro_expander::MacroDefinition;
 use ratex_parser::Parser;
 use ratex_types::color::Color;
 use ratex_types::display_item::{DisplayItem, DisplayList};
@@ -404,7 +424,13 @@ unsafe fn read_options(ptr: *const u8, len: usize) -> Result<RenderOptions, Rate
     })
 }
 
-fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayList, RatexBuffer> {
+/// A laid-out formula and the `\ratexBox`es in it.
+struct Rendered {
+    display_list: DisplayList,
+    boxes: Vec<SubtermBox>,
+}
+
+fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<Rendered, RatexBuffer> {
     let raw_source = strip_outer_math_delimiters(latex);
     let raw_offset = raw_source.as_ptr() as usize - latex.as_ptr() as usize;
     let normalized = normalize_compat_environments(raw_source);
@@ -414,7 +440,8 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayLi
     };
     let mut parser = Parser::new(source);
     register_compat_macros(&mut parser, source);
-    let nodes = parser.parse().map_err(|e| {
+    boxes::begin();
+    let mut nodes = parser.parse().map_err(|e| {
         error_buffer(
             RATEX_STATUS_PARSE_ERROR,
             &e.message,
@@ -425,6 +452,7 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayLi
             }),
         )
     })?;
+    let marks = boxes::mark(&mut nodes);
     let style = if options.display_mode {
         MathStyle::Display
     } else {
@@ -453,13 +481,22 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<DisplayLi
         .map_err(|message| error_buffer(RATEX_STATUS_PARSE_ERROR, &message, None))?;
     let mut display_list = to_display_list(&layout_box);
     sanitize_display_list(&mut display_list);
-    Ok(display_list)
+    let boxes = match marks {
+        Some(marks) => marks.extract(&mut display_list, source, |start, end| {
+            span_offset.and_then(|offset| input_span(source, offset, start, end))
+        }),
+        None => Vec::new(),
+    };
+    Ok(Rendered {
+        display_list,
+        boxes,
+    })
 }
 
 /// Built-in compatibility macros for Project Gutenberg / Distributed
-/// Proofreaders `.tex` corpora, classical trig/calculus notation, and
-/// interactive sub-expression bounding-box tagging (`\ratexBox`,
-/// `\ratexHighlight`).
+/// Proofreaders `.tex` corpora and classical trig/calculus notation. The
+/// sub-expression box macros (`\ratexBox`, `\ratexHighlight`) are function
+/// macros registered alongside them (see the `boxes` module).
 ///
 /// Registered in the parser's `MacroExpander` only when referenced in
 /// `source` and not explicitly defined via `\newcommand`/`\def`, so standard
@@ -512,14 +549,6 @@ const COMPAT_MACROS: &[(&str, &str)] = &[
     ("\\DPnote", "\\@firstoftwo{}{#1}"),
     ("\\First", "\\textsc{#1}"),
     ("\\Inum", "\\textup{#1}"),
-    // Zero-padding sub-expression bounding-box and highlight helpers for
-    // interactive equation manipulation (emits DisplayItem::Rect in DisplayList
-    // and <rect> in SVG without altering math-mode spacing).
-    ("\\ratexBox", "\\htmlStyle{background-color:#1;}{#2}"),
-    (
-        "\\ratexHighlight",
-        "\\htmlStyle{color:#1;background-color:#2;}{#3}",
-    ),
 ];
 
 fn register_compat_macros(parser: &mut Parser, source: &str) {
@@ -529,6 +558,13 @@ fn register_compat_macros(parser: &mut Parser, source: &str) {
     for &(name, expansion) in COMPAT_MACROS {
         if contains_control_word(source, name) && !defines_command(source, name) {
             parser.gullet.set_text_macro(name, expansion);
+        }
+    }
+    for &(name, handler) in boxes::BOX_MACROS {
+        if contains_control_word(source, name) && !defines_command(source, name) {
+            parser
+                .gullet
+                .set_macro(name.to_owned(), MacroDefinition::Function(handler));
         }
     }
 }
@@ -644,16 +680,19 @@ fn parse_finite_color(spec: &str) -> Option<Color> {
 }
 
 fn render_display_list_impl(latex: &str, options: &RenderOptions) -> Result<Vec<u8>, RatexBuffer> {
-    let display_list = layout_display_list(latex, options)?;
+    let rendered = layout_display_list(latex, options)?;
     #[derive(serde::Serialize)]
     struct VersionedDisplayList<'a> {
         version: u32,
         #[serde(flatten)]
         display_list: &'a DisplayList,
+        #[serde(skip_serializing_if = "<[_]>::is_empty")]
+        boxes: &'a [SubtermBox],
     }
     serde_json::to_vec(&VersionedDisplayList {
         version: 1,
-        display_list: &display_list,
+        display_list: &rendered.display_list,
+        boxes: &rendered.boxes,
     })
     .map_err(|e| {
         error_buffer(
@@ -665,7 +704,7 @@ fn render_display_list_impl(latex: &str, options: &RenderOptions) -> Result<Vec<
 }
 
 fn render_svg_impl(latex: &str, options: &RenderOptions) -> Result<Vec<u8>, RatexBuffer> {
-    let display_list = layout_display_list(latex, options)?;
+    let rendered = layout_display_list(latex, options)?;
     let svg_options = ratex_svg::SvgOptions {
         font_size: options.font_size,
         padding: options.padding,
@@ -673,7 +712,11 @@ fn render_svg_impl(latex: &str, options: &RenderOptions) -> Result<Vec<u8>, Rate
         embed_glyphs: options.embed_glyphs,
         ..Default::default()
     };
-    Ok(ratex_svg::render_to_svg(&display_list, &svg_options).into_bytes())
+    let svg = ratex_svg::render_to_svg(&rendered.display_list, &svg_options);
+    Ok(
+        boxes::add_svg_hit_areas(svg, &rendered.boxes, options.font_size, options.padding)
+            .into_bytes(),
+    )
 }
 
 fn error_buffer(status: i32, message: &str, span: Option<(usize, usize)>) -> RatexBuffer {
@@ -1112,22 +1155,195 @@ mod tests {
         assert_eq!(glyphs(r"\newcommand{\DPtypo}[2]{#1} \DPtypo{a}{b}"), "a");
     }
 
-    #[test]
-    fn ratex_box_and_highlight_emit_subterm_bounding_boxes() {
-        let latex = r"\ratexBox{#3b82f626}{\frac{dy}{dx}} = \ratexHighlight{#ef4444}{#fee2e2}{2x}";
+    fn display_list(latex: &str) -> serde_json::Value {
         let (status, json) = unsafe { render(ratex_render_display_list, latex, "") };
-        assert_eq!(status, RATEX_STATUS_OK, "{json}");
-        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
-        let items = value["items"].as_array().unwrap();
-        let rects: Vec<_> = items.iter().filter(|item| item["type"] == "Rect").collect();
-        assert_eq!(rects.len(), 2, "expected 2 bounding-box Rect items: {json}");
-        for rect in rects {
-            assert!(rect["width"].as_f64().unwrap() > 0.0);
-            assert!(rect["height"].as_f64().unwrap() > 0.0);
-        }
+        assert_eq!(status, RATEX_STATUS_OK, "{latex}: {json}");
+        serde_json::from_str(&json).unwrap()
+    }
 
-        let (svg_status, svg) = unsafe { render(ratex_render_svg, latex, "") };
-        assert_eq!(svg_status, RATEX_STATUS_OK);
-        assert!(svg.contains("<rect"));
+    /// `(id, [x, y, width, height])` of every box, in reported order.
+    fn boxes(value: &serde_json::Value) -> Vec<(String, [f64; 4])> {
+        let Some(boxes) = value.get("boxes") else {
+            return Vec::new();
+        };
+        boxes
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| {
+                let n = |key: &str| b[key].as_f64().unwrap();
+                (
+                    b["id"].as_str().unwrap().to_owned(),
+                    [n("x"), n("y"), n("width"), n("height")],
+                )
+            })
+            .collect()
+    }
+
+    fn contains(outer: [f64; 4], inner: [f64; 4]) -> bool {
+        const EPS: f64 = 1e-9;
+        inner[0] >= outer[0] - EPS
+            && inner[1] >= outer[1] - EPS
+            && inner[0] + inner[2] <= outer[0] + outer[2] + EPS
+            && inner[1] + inner[3] <= outer[1] + outer[3] + EPS
+    }
+
+    #[test]
+    fn boxes_leave_the_layout_unchanged() {
+        let cases = [
+            (r"a+\ratexBox{b}{b}+c", "a+b+c"),
+            (r"a\ratexBox{op}{+}b", "a+b"),
+            (r"a\ratexBox{t}{-x}", "a-x"),
+            (r"2\ratexBox{l}{(x}+1)", "2(x+1)"),
+            (r"\ratexBox{d}{\frac{dy}{dx}} = 2x", r"\frac{dy}{dx} = 2x"),
+            (r"\frac{\ratexBox{n}{a+b}}{c}", r"\frac{a+b}{c}"),
+            (r"\sqrt{\ratexBox{r}{x^2}+1}", r"\sqrt{x^2+1}"),
+            (r"\sqrt[\ratexBox{i}{3}]{x}", r"\sqrt[3]{x}"),
+            (
+                r"x^{\ratexBox{e}{2n}} - y_{\ratexBox{s}{i+1}}",
+                r"x^{2n} - y_{i+1}",
+            ),
+            (r"\ratexBox{sum}{\sum_{i=0}^n i^2}", r"\sum_{i=0}^n i^2"),
+            (r"\left(\ratexBox{in}{x+y}\right)^2", r"\left(x+y\right)^2"),
+            (
+                r"\ratexBox{f}{\sin} x + \ratexBox{g}{\cos x}",
+                r"\sin x + \cos x",
+            ),
+            (
+                r"\ratexBox{o}{a + \ratexBox{i}{\frac{1}{x}} - \ratexBox{j}{b}}",
+                r"a + \frac{1}{x} - b",
+            ),
+            (
+                r"\begin{aligned}\ratexBox{l}{x} &= \ratexBox{r}{y+1} \\ z &= 0\end{aligned}",
+                r"\begin{aligned}x &= y+1 \\ z &= 0\end{aligned}",
+            ),
+            (r"\text{if \ratexBox{w}{x > 0}}", r"\text{if x > 0}"),
+        ];
+        for (boxed, plain) in cases {
+            let boxed_value = display_list(boxed);
+            let plain_value = display_list(plain);
+            assert_eq!(boxed_value["items"], plain_value["items"], "{boxed}");
+            for key in ["width", "height", "depth"] {
+                let (b, p) = (boxed_value[key].as_f64(), plain_value[key].as_f64());
+                assert!((b.unwrap() - p.unwrap()).abs() < 1e-9, "{boxed}: {key}");
+            }
+            assert!(!boxes(&boxed_value).is_empty(), "{boxed}: no boxes");
+            assert!(plain_value.get("boxes").is_none(), "{plain}");
+        }
+    }
+
+    #[test]
+    fn boxes_report_ids_and_nest() {
+        let value = display_list(
+            r"\ratexBox{lhs}{\frac{\ratexBox{num}{d y}}{\ratexBox{den}{dx}}} = \ratexBox{rhs}{2\ratexBox{x}{x}^{\ratexBox{exp}{2}}}",
+        );
+        let found = boxes(&value);
+        let ids: Vec<&str> = found.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(ids, ["lhs", "num", "den", "rhs", "x", "exp"]);
+        let get = |id: &str| found.iter().find(|(b, _)| b == id).unwrap().1;
+        for (outer, inner) in [("lhs", "num"), ("lhs", "den"), ("rhs", "x"), ("rhs", "exp")] {
+            assert!(
+                contains(get(outer), get(inner)),
+                "{outer} must contain {inner}"
+            );
+        }
+        // The numerator sits above the denominator, the exponent above x.
+        assert!(get("num")[1] + get("num")[3] <= get("den")[1]);
+        assert!(get("exp")[1] < get("x")[1]);
+        // Everything lies inside the formula's box.
+        let total = [
+            0.0,
+            0.0,
+            value["width"].as_f64().unwrap(),
+            value["height"].as_f64().unwrap() + value["depth"].as_f64().unwrap(),
+        ];
+        for (id, rect) in &found {
+            assert!(rect[2] > 0.0 && rect[3] > 0.0, "{id}: {rect:?}");
+            assert!(contains(total, *rect), "{id}: {rect:?} outside {total:?}");
+        }
+        // A box split over several atoms spans all of them.
+        let (_, sum) = &boxes(&display_list(r"\ratexBox{s}{a+b+c}"))[0];
+        assert!((sum[2] - display_list("a+b+c")["width"].as_f64().unwrap()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn box_bodies_report_their_input_span() {
+        let latex = r"$x = \ratexBox{frac}{\frac{1}{2}} + \ratexBox{y}y$";
+        let (_, json) = unsafe { render(ratex_render_display_list, latex, "") };
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let span = |i: usize| {
+            let b = &value["boxes"][i];
+            &latex[b["start"].as_u64().unwrap() as usize..b["end"].as_u64().unwrap() as usize]
+        };
+        assert_eq!(span(0), r"\frac{1}{2}");
+        assert_eq!(span(1), "y");
+        // A body put together by a macro has no single span in the input.
+        let value = display_list(r"\newcommand{\wrap}[1]{\ratexBox{h}{#1}} \wrap{y}");
+        assert_eq!(value["boxes"][0]["id"], "h");
+        assert!(value["boxes"][0].get("start").is_none(), "{value}");
+    }
+
+    #[test]
+    fn invalid_box_arguments_are_parse_errors() {
+        for latex in [
+            r"\ratexBox{has space}{x}",
+            r"\ratexBox{}{x}",
+            r"\ratexBox{a<b}{x}",
+            r"\ratexHighlight{notacolor}{id}{x}",
+            r"\ratexBox{id}",
+        ] {
+            let (status, payload) = unsafe { render(ratex_render_display_list, latex, "") };
+            assert_eq!(status, RATEX_STATUS_PARSE_ERROR, "{latex}: {payload}");
+        }
+        // A formula's own definition wins over the built-in one.
+        let value = display_list(r"\newcommand{\ratexBox}[2]{#2} \ratexBox{a}{b}");
+        assert!(value.get("boxes").is_none());
+    }
+
+    #[test]
+    fn highlight_paints_one_rect_behind_its_box() {
+        let latex = r"\ratexHighlight{#fee2e2}{t}{a+b} = c";
+        let value = display_list(latex);
+        let (_, rect) = &boxes(&value)[0];
+        let items = value["items"].as_array().unwrap();
+        let rects: Vec<_> = items.iter().filter(|i| i["type"] == "Rect").collect();
+        assert_eq!(rects.len(), 1, "{value}");
+        let fill = rects[0];
+        for (key, expected) in ["x", "y", "width", "height"].iter().zip(rect) {
+            assert!((fill[key].as_f64().unwrap() - expected).abs() < 1e-9);
+        }
+        assert!((fill["color"]["r"].as_f64().unwrap() - 254.0 / 255.0).abs() < 1e-6);
+        // Painted first, under the glyphs.
+        assert_eq!(items[0]["type"], "Rect");
+        // Glyphs are where they would be without the highlight.
+        let plain = display_list("a+b = c");
+        assert_eq!(items[1..], plain["items"].as_array().unwrap()[..]);
+    }
+
+    #[test]
+    fn svg_marks_boxes_for_hit_testing() {
+        let latex = r"\ratexBox{lhs}{\frac{dy}{dx}} = \ratexBox{rhs}{2\ratexBox{x}{x}}";
+        let opts = r#"{"fontSize":20,"padding":5}"#;
+        let (status, svg) = unsafe { render(ratex_render_svg, latex, opts) };
+        assert_eq!(status, RATEX_STATUS_OK, "{svg}");
+        let (_, plain) = unsafe { render(ratex_render_svg, r"\frac{dy}{dx} = 2x", opts) };
+        // The drawing is untouched; the hit areas follow it.
+        let drawing = &svg[..svg.find("<rect data-ratex-box").unwrap()];
+        assert_eq!(drawing, &plain[..plain.len() - "</svg>".len()]);
+        assert!(svg.ends_with("</svg>"));
+        let lhs = boxes(&display_list(latex))[0].1;
+        let num = |x: f64| boxes::tests_fmt(x);
+        let start = latex.find(r"\frac").unwrap();
+        assert!(svg.contains(&format!(
+            r#"<rect data-ratex-box="lhs" x="{}" y="{}" width="{}" height="{}" data-ratex-start="{start}" data-ratex-end="{}" fill="none" pointer-events="all"/>"#,
+            num(lhs[0] * 20.0 + 5.0),
+            num(lhs[1] * 20.0 + 5.0),
+            num(lhs[2] * 20.0),
+            num(lhs[3] * 20.0),
+            start + r"\frac{dy}{dx}".len(),
+        )), "{svg}");
+        for id in ["rhs", "x"] {
+            assert!(svg.contains(&format!(r#"data-ratex-box="{id}""#)));
+        }
     }
 }
