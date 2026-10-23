@@ -454,6 +454,9 @@ dependencies = [
 name = "ratex_ffi"
 version = "0.0.1"
 dependencies = [
+ "ab_glyph",
+ "ratex-font",
+ "ratex-katex-fonts",
  "ratex-layout",
  "ratex-lexer",
  "ratex-parser",

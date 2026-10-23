@@ -96,7 +96,10 @@ dart run melos run test               # Dart + Flutter tests
 
 Building the Rust crate requires a stable Rust toolchain with the
 `wasm32-unknown-unknown` target for web builds (`rustup target add
-wasm32-unknown-unknown`).
+wasm32-unknown-unknown`). `native:build:web` builds without the crate's
+default `system-fonts` feature, so the module has no imports, and shrinks it
+with `wasm-opt -Oz` when [binaryen](https://github.com/WebAssembly/binaryen)
+is installed.
 
 ## Licenses
 

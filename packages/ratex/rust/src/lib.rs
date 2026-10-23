@@ -23,9 +23,11 @@
 //!   (the default here) glyph outlines are inlined from the compiled-in KaTeX
 //!   fonts, so math renders with no fonts installed or served. Characters
 //!   the KaTeX fonts lack (CJK, emoji in `\text{}`) are outlined from a
-//!   system font found at render time on native targets (overridable with
-//!   the `RATEX_UNICODE_FONT` environment variable) and become `<text>`
-//!   elements that rely on the viewer's fonts on wasm32.
+//!   system font found at render time with the default `system-fonts`
+//!   feature on native targets (overridable with the `RATEX_UNICODE_FONT`
+//!   environment variable), and otherwise become `<text>` elements that rely
+//!   on the viewer's fonts. Web builds leave the feature off (see
+//!   `tool/build_wasm.sh`), which keeps the module free of imports.
 //!
 //! Sub-expression boxes: `\ratexBox{id}{body}` renders `body` exactly as if
 //! it were not wrapped and reports where it landed; `\ratexHighlight{color}
@@ -48,6 +50,9 @@
 //! with byte offsets into the input, for editor diagnostics.
 
 mod boxes;
+// With `system-fonts`, ratex-svg writes the SVG; tests compare the two.
+#[cfg_attr(feature = "system-fonts", allow(dead_code))]
+mod svg;
 
 use boxes::SubtermBox;
 use ratex_layout::{layout, to_display_list, validate_layout, LayoutOptions};
@@ -705,14 +710,27 @@ fn render_display_list_impl(latex: &str, options: &RenderOptions) -> Result<Vec<
 
 fn render_svg_impl(latex: &str, options: &RenderOptions) -> Result<Vec<u8>, RatexBuffer> {
     let rendered = layout_display_list(latex, options)?;
-    let svg_options = ratex_svg::SvgOptions {
-        font_size: options.font_size,
-        padding: options.padding,
-        stroke_width: options.stroke_width,
-        embed_glyphs: options.embed_glyphs,
-        ..Default::default()
-    };
-    let svg = ratex_svg::render_to_svg(&rendered.display_list, &svg_options);
+    #[cfg(feature = "system-fonts")]
+    let svg = ratex_svg::render_to_svg(
+        &rendered.display_list,
+        &ratex_svg::SvgOptions {
+            font_size: options.font_size,
+            padding: options.padding,
+            stroke_width: options.stroke_width,
+            embed_glyphs: options.embed_glyphs,
+            ..Default::default()
+        },
+    );
+    #[cfg(not(feature = "system-fonts"))]
+    let svg = svg::render_to_svg(
+        &rendered.display_list,
+        &svg::SvgOptions {
+            font_size: options.font_size,
+            padding: options.padding,
+            stroke_width: options.stroke_width,
+            embed_glyphs: options.embed_glyphs,
+        },
+    );
     Ok(
         boxes::add_svg_hit_areas(svg, &rendered.boxes, options.font_size, options.padding)
             .into_bytes(),
@@ -1332,7 +1350,7 @@ mod tests {
         assert_eq!(drawing, &plain[..plain.len() - "</svg>".len()]);
         assert!(svg.ends_with("</svg>"));
         let lhs = boxes(&display_list(latex))[0].1;
-        let num = |x: f64| boxes::tests_fmt(x);
+        let num = |x: f64| svg::Num(x).to_string();
         let start = latex.find(r"\frac").unwrap();
         assert!(svg.contains(&format!(
             r#"<rect data-ratex-box="lhs" x="{}" y="{}" width="{}" height="{}" data-ratex-start="{start}" data-ratex-end="{}" fill="none" pointer-events="all"/>"#,
@@ -1344,6 +1362,67 @@ mod tests {
         )), "{svg}");
         for id in ["rhs", "x"] {
             assert!(svg.contains(&format!(r#"data-ratex-box="{id}""#)));
+        }
+    }
+
+    /// Formulas exercising every display item kind and KaTeX font.
+    const SVG_CORPUS: &[&str] = &[
+        r"\frac{-b \pm \sqrt{b^2-4ac}}{2a}",
+        r"\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6} \quad \int_0^1 \oint \prod",
+        r"\mathbb{R} \mathcal{F} \mathfrak{g} \mathscr{L} \mathsf{x} \mathtt{y} \mathrm{d}",
+        r"\boldsymbol{\alpha} \mathbf{v} \textit{it} \textbf{bf} \textsf{\textbf{sb}} \mathsf{\textit{si}}",
+        r"\left( \frac{a}{b} \right] \Bigg\{ \big| \left\langle x \middle| y \right\rangle",
+        r"\overbrace{a+b}^{n} \underbrace{c}_{m} \xrightarrow[below]{f} \overleftrightarrow{AB}",
+        r"\begin{array}{c:c|c} a & b & c \\ \hdashline d & e & f \\ \hline g & h & i \end{array}",
+        r"\color{#ff000080}{x} \colorbox{yellow}{y} \fcolorbox{red}{#0000ff}{z} \textcolor{teal}{w}",
+        r"\sqrt[3]{x} \widehat{abc} \vec{v} \tilde{n} \overline{z} \underline{q}",
+        r"\cancel{x} \bcancel{y} \xcancel{z} \boxed{w} \sout{s} \phase{\theta}",
+        r"\ce{2H2 + O2 <=> 2H2O} \ce{A ->[\Delta] B}",
+        r"\text{a < b \& c > d}",
+    ];
+
+    #[cfg(feature = "system-fonts")]
+    #[test]
+    fn svg_writer_matches_ratex_svg() {
+        for latex in SVG_CORPUS {
+            let Ok(rendered) = layout_display_list(latex, &RenderOptions::default()) else {
+                panic!("{latex} failed to render");
+            };
+            for (embed_glyphs, font_size, padding, stroke_width) in [
+                (true, 40.0, 10.0, 1.5),
+                (true, 17.5, 0.0, 0.8),
+                (false, 22.0, 6.0, 1.4),
+            ] {
+                let ours = svg::render_to_svg(
+                    &rendered.display_list,
+                    &svg::SvgOptions {
+                        font_size,
+                        padding,
+                        stroke_width,
+                        embed_glyphs,
+                    },
+                );
+                let theirs = ratex_svg::render_to_svg(
+                    &rendered.display_list,
+                    &ratex_svg::SvgOptions {
+                        font_size,
+                        padding,
+                        stroke_width,
+                        embed_glyphs,
+                        ..Default::default()
+                    },
+                );
+                assert_eq!(ours, theirs, "{latex} (embed_glyphs: {embed_glyphs})");
+            }
+        }
+    }
+
+    #[test]
+    fn svg_outlines_every_katex_glyph() {
+        for latex in SVG_CORPUS {
+            let (status, svg) = unsafe { render(ratex_render_svg, latex, "") };
+            assert_eq!(status, RATEX_STATUS_OK, "{latex}: {svg}");
+            assert!(!svg.contains("<text"), "{latex}: {svg}");
         }
     }
 }

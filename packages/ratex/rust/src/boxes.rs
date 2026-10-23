@@ -521,6 +521,7 @@ pub(crate) fn add_svg_hit_areas(
     font_size: f64,
     padding: f64,
 ) -> String {
+    use crate::svg::Num;
     use std::fmt::Write;
     if boxes.is_empty() || !svg.ends_with("</svg>") {
         return svg;
@@ -545,21 +546,4 @@ pub(crate) fn add_svg_hit_areas(
     }
     svg.push_str("</svg>");
     svg
-}
-
-/// Formats a number like `ratex_svg` does: six decimals, trailing zeros
-/// trimmed.
-struct Num(f64);
-
-impl std::fmt::Display for Num {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = format!("{:.6}", self.0);
-        let s = s.trim_end_matches('0').trim_end_matches('.');
-        f.write_str(if s.is_empty() || s == "-" { "0" } else { s })
-    }
-}
-
-#[cfg(test)]
-pub(crate) fn tests_fmt(n: f64) -> String {
-    Num(n).to_string()
 }

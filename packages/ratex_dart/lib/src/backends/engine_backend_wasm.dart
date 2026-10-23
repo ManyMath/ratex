@@ -103,11 +103,11 @@ class WasmBackend implements RatexBackend {
 
   /// Instantiates with throwing stubs for every declared import.
   ///
-  /// The raw cargo-built module declares a handful of `__wbindgen_*` imports
-  /// (dragged in by transitive system-font-discovery crates that are inert on
-  /// the web); the render paths never invoke them, system font lookups fail
-  /// gracefully inside the engine, so satisfying the instantiation-time link
-  /// check is all that is needed.
+  /// `tool/build_wasm.sh` builds a module with no imports. One built with
+  /// the crate's default `system-fonts` feature declares a handful of
+  /// `__wbindgen_*` imports (dragged in by system-font-discovery crates that
+  /// are inert on the web); the render paths never invoke them, so
+  /// satisfying the instantiation-time link check is all that is needed.
   static Future<JSObject> _instantiate(JSObject module) async {
     final webAssembly = _webAssembly();
     final imports = webAssembly
