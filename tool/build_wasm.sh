@@ -48,10 +48,12 @@ else
   cp "$built" "$wasm"
 fi
 
-# The Flutter apps serve the binary from their web/ directory (everything in
+# The JS package loads the binary from next to its index.js. The Flutter apps
+# serve it from their web/ directory (everything in
 # web/ ships verbatim with a Flutter web build), matching the default
 # Ratex.wasmUrl of 'ratex_ffi.wasm'; native builds are unaffected.
 destinations=(
+  "$root/packages/ratex_wasm/ratex_ffi.wasm"
   "$root/packages/ratex_dart/example/web/ratex_ffi.wasm"
   "$root/packages/ratex/example/web/ratex_ffi.wasm"
   "$root/apps/ratex_example/web/ratex_ffi.wasm"

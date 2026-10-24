@@ -1,0 +1,33 @@
+{
+  "name": "@manymath/ratex-wasm",
+  "version": "0.1.0",
+  "description": "KaTeX-compatible math rendering in the browser and Node.js: the RaTeX engine as an import-free WebAssembly module, with sub-expression boxes.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ManyMath/ratex",
+    "directory": "packages/ratex_wasm"
+  },
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./ratex_ffi.wasm": "./ratex_ffi.wasm"
+  },
+  "types": "./index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "ratex_ffi.wasm"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "bash ../../tool/build_wasm.sh",
+    "test": "node --test test/*.test.js"
+  }
+}

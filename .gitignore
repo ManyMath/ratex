@@ -1,3 +1,6 @@
+# Node
+node_modules/
+
 # Dart / Flutter
 .dart_tool/
 .packages
@@ -26,6 +29,7 @@ packages/ratex_dart/example/web/ratex_ffi.wasm
 packages/ratex_dart/example/web/main.dart.js*
 packages/ratex/example/web/ratex_ffi.wasm
 apps/ratex_example/web/ratex_ffi.wasm
+packages/ratex_wasm/ratex_ffi.wasm
 
 # OS / editor
 .DS_Store
