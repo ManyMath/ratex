@@ -31,13 +31,61 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      # The web build's configuration (see tool/build_wasm.sh).
+      - run: cargo clippy --all-targets --no-default-features -- -D warnings
+      - run: cargo test --no-default-features
       - run: rustup target add wasm32-unknown-unknown
       - run: cargo check --target wasm32-unknown-unknown
+      - run: cargo check --target wasm32-unknown-unknown --no-default-features
       - run: rustup target add aarch64-linux-android
       - run: cargo check --target aarch64-linux-android
       # cargokit builds Windows with the MSVC target.
       - run: rustup target add x86_64-pc-windows-msvc
       - run: cargo check --target x86_64-pc-windows-msvc
+
+  wasm:
+    name: Wasm (ratex_ffi.wasm, JS package)
+    runs-on: ubuntu-latest
+    env:
+      BINARYEN_VERSION: '116'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/ratex/rust
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install binaryen (wasm-opt)
+        run: |
+          release="binaryen-version_${BINARYEN_VERSION}"
+          curl -sSfL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/${release}-x86_64-linux.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/${release}/bin" >> "$GITHUB_PATH"
+      - name: Build the wasm engine
+        run: ./tool/build_wasm.sh
+        env:
+          RATEX_REQUIRE_WASM_OPT: '1'
+      # No imports or wasm-bindgen exports, and a size budget with some
+      # headroom over the 2,675,024 bytes (1,066,408 gzipped) of Oct 2026.
+      - name: Check imports, exports, and size
+        run: >-
+          node tool/check_wasm.mjs packages/ratex_wasm/ratex_ffi.wasm
+          --max-bytes 2900000 --max-gzip-bytes 1150000
+      - name: Test the JS package
+        working-directory: packages/ratex_wasm
+        run: npm test
+        env:
+          # Fail, rather than skip, if the module is missing.
+          RATEX_REQUIRE_WASM: '1'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ratex_ffi.wasm
+          path: packages/ratex_wasm/ratex_ffi.wasm
+          if-no-files-found: error
 
   analyze-test:
     name: Analyze and test (Dart/Flutter)
