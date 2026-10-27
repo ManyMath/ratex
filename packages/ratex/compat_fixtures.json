@@ -1,0 +1,275 @@
+{
+ "_comment": "Shared fixtures for compat_macros.json. input -> normalized LaTeX (whitespace-collapsed; mode math applies every macro, mode prose only the prose/editorial ones), and glyphs: the characters ratex paints for input, in display-list order. Used by the ratex (Rust), ManyMath (Dart) and math-games (Python) tests.",
+ "fixtures": [
+  {
+   "id": "ds",
+   "mode": "math",
+   "input": "\\ds x",
+   "normalized": "\\displaystyle x"
+  },
+  {
+   "id": "ds-boundary",
+   "mode": "math",
+   "input": "\\dsx \\displaystyle y",
+   "normalized": "\\dsx \\displaystyle y"
+  },
+  {
+   "id": "efrac",
+   "mode": "math",
+   "input": "\\efrac{1}{2}",
+   "normalized": "\\frac{1}{2}",
+   "glyphs": "12"
+  },
+  {
+   "id": "efrac-nested",
+   "mode": "math",
+   "input": "\\efrac{\\efrac{a}{b}}{c}",
+   "normalized": "\\frac{\\frac{a}{b}}{c}",
+   "glyphs": "abc"
+  },
+  {
+   "id": "Frac",
+   "mode": "math",
+   "input": "\\Frac{3}{4}",
+   "normalized": "\\frac{3}{4}",
+   "glyphs": "34"
+  },
+  {
+   "id": "dint",
+   "mode": "math",
+   "input": "\\dint_0^1 x\\,dx",
+   "normalized": "\\displaystyle\\int_0^1 x\\,dx"
+  },
+  {
+   "id": "sqrtp-index",
+   "mode": "math",
+   "input": "\\sqrtp[3]{x}",
+   "normalized": "\\sqrt[3]{x}"
+  },
+  {
+   "id": "sqrtp",
+   "mode": "math",
+   "input": "\\sqrtp{x^2+1}",
+   "normalized": "\\sqrt{x^2+1}"
+  },
+  {
+   "id": "delta",
+   "mode": "math",
+   "input": "\\DELTA x + \\EPSILON",
+   "normalized": "\\delta x + \\epsilon",
+   "glyphs": "δx+ϵ"
+  },
+  {
+   "id": "arcsec",
+   "mode": "math",
+   "input": "\\arcsec x",
+   "normalized": "\\operatorname{arcsec} x",
+   "glyphs": "arcsecx"
+  },
+  {
+   "id": "sech",
+   "mode": "math",
+   "input": "\\sech u",
+   "normalized": "\\operatorname{sech} u",
+   "glyphs": "sechu"
+  },
+  {
+   "id": "arsinh",
+   "mode": "math",
+   "input": "\\arsinh x",
+   "normalized": "\\operatorname{arsinh} x",
+   "glyphs": "arsinhx"
+  },
+  {
+   "id": "cotan",
+   "mode": "math",
+   "input": "\\cotan x",
+   "normalized": "\\cot x"
+  },
+  {
+   "id": "Sum-Lim",
+   "mode": "math",
+   "input": "\\Sum_{n=1}^{\\infty} \\Lim x",
+   "normalized": "\\sum_{n=1}^{\\infty} \\lim x"
+  },
+  {
+   "id": "Log",
+   "mode": "math",
+   "input": "\\Log z",
+   "normalized": "\\operatorname{Log} z",
+   "glyphs": "Logz"
+  },
+  {
+   "id": "Sin",
+   "mode": "math",
+   "input": "\\Sin x",
+   "normalized": "\\operatorname{Sin} x",
+   "glyphs": "Sinx"
+  },
+  {
+   "id": "Arctan",
+   "mode": "math",
+   "input": "\\Arctan x",
+   "normalized": "\\operatorname{arc\\,tan} x"
+  },
+  {
+   "id": "DPtypo",
+   "mode": "math",
+   "input": "\\DPtypo{bad}{\\frac{dy}{dx}} = 1",
+   "normalized": "\\frac{dy}{dx} = 1",
+   "glyphs": "dydx=1"
+  },
+  {
+   "id": "DPtypo-simple",
+   "mode": "math",
+   "input": "\\DPtypo{a}{b}",
+   "normalized": "b",
+   "glyphs": "b"
+  },
+  {
+   "id": "DPtypo-space",
+   "mode": "math",
+   "input": "\\DPtypo {a} {b}",
+   "normalized": "b",
+   "glyphs": "b"
+  },
+  {
+   "id": "DPtypo-nested",
+   "mode": "math",
+   "input": "\\DPtypo{x}{\\DPtypo{y}{\\efrac{1}{2}}}",
+   "normalized": "\\frac{1}{2}",
+   "glyphs": "12"
+  },
+  {
+   "id": "DPchg",
+   "mode": "math",
+   "input": "\\DPchg{old}{2x}",
+   "normalized": "2x",
+   "glyphs": "2x"
+  },
+  {
+   "id": "DPmod",
+   "mode": "math",
+   "input": "\\DPmod{x}{y} + 1",
+   "normalized": "y + 1",
+   "glyphs": "y+1"
+  },
+  {
+   "id": "Typo",
+   "mode": "math",
+   "input": "\\Typo{a}{b}",
+   "normalized": "b"
+  },
+  {
+   "id": "Chg",
+   "mode": "math",
+   "input": "\\Chg{a}{b}",
+   "normalized": "b"
+  },
+  {
+   "id": "Add",
+   "mode": "math",
+   "input": "x + \\Add{y}",
+   "normalized": "x + y"
+  },
+  {
+   "id": "DPnote",
+   "mode": "math",
+   "input": "x\\DPnote{a transcriber's note}",
+   "normalized": "x",
+   "glyphs": "x"
+  },
+  {
+   "id": "DPnote-optional",
+   "mode": "math",
+   "input": "x\\DPnote[1]{note}",
+   "normalized": "x"
+  },
+  {
+   "id": "DPPageSep",
+   "mode": "math",
+   "input": "a\\DPPageSep{001}{12}b",
+   "normalized": "ab"
+  },
+  {
+   "id": "PageSep",
+   "mode": "math",
+   "input": "a\\PageSep{12}b",
+   "normalized": "ab"
+  },
+  {
+   "id": "Pagelabel",
+   "mode": "math",
+   "input": "a\\Pagelabel[pg]{12}b",
+   "normalized": "ab"
+  },
+  {
+   "id": "PageLabel",
+   "mode": "math",
+   "input": "a\\PageLabel{12}b",
+   "normalized": "ab"
+  },
+  {
+   "id": "DPlabel",
+   "mode": "math",
+   "input": "a\\DPlabel{x}b",
+   "normalized": "ab"
+  },
+  {
+   "id": "ResetCols",
+   "mode": "math",
+   "input": "a\\ResetCols[2]{3}b",
+   "normalized": "ab"
+  },
+  {
+   "id": "First",
+   "mode": "math",
+   "input": "\\First{C} + 1",
+   "normalized": "C + 1",
+   "glyphs": "C+1"
+  },
+  {
+   "id": "Inum",
+   "mode": "math",
+   "input": "\\Inum{1}",
+   "normalized": "1",
+   "glyphs": "1"
+  },
+  {
+   "id": "First-prose",
+   "mode": "prose",
+   "input": "\\First{T}HE rest",
+   "normalized": "THE rest"
+  },
+  {
+   "id": "DPtypo-prose",
+   "mode": "prose",
+   "input": "a \\DPtypo{teh}{the} b",
+   "normalized": "a the b"
+  },
+  {
+   "id": "DPnote-prose",
+   "mode": "prose",
+   "input": "a \\DPnote{note}b",
+   "normalized": "a b"
+  },
+  {
+   "id": "Add-prose",
+   "mode": "prose",
+   "input": "\\Add{new} text",
+   "normalized": "new text"
+  },
+  {
+   "id": "Inum-prose",
+   "mode": "prose",
+   "input": "\\Inum{12} items",
+   "normalized": "12 items"
+  },
+  {
+   "id": "PageSep-prose",
+   "mode": "prose",
+   "input": "a\\PageSep{3} b",
+   "normalized": "a b"
+  }
+ ]
+}

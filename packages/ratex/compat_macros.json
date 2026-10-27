@@ -1,0 +1,370 @@
+{
+ "_comment": "Canonical Distributed Proofreaders / Project Gutenberg compat macros, shared by ratex (Rust), ManyMath (Dart) and math-games (Python). name: control word without backslash. arity: number of braced arguments. expansion: KaTeX-compatible body with #1..#arity. plain: optional body used by text-only normalizers instead of expansion. category: math | prose | editorial. optional: a [..] group may precede the arguments and is dropped by normalizers. ratex: false if ratex cannot register it as a text macro. source/justification: where the corpus preamble defines it. Regenerate ManyMath's compat_macros.g.dart after editing.",
+ "macros": [
+  {
+   "name": "ds",
+   "arity": 0,
+   "expansion": "\\displaystyle",
+   "category": "math",
+   "source": "public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:308; public_domain_textbooks/demorgan_1831_study_of_mathematics/39088-t.tex:525; public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:766",
+   "justification": "\\newcommand{\\ds}{\\displaystyle}"
+  },
+  {
+   "name": "efrac",
+   "arity": 2,
+   "expansion": "\\frac{#1}{#2}",
+   "category": "math",
+   "source": "public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:737; public_domain_textbooks/demorgan_1831_study_of_mathematics/39088-t.tex:518",
+   "justification": "\\newcommand{\\efrac}[2]{\\frac{#1}{#2}}: two arguments, passed through to \\frac"
+  },
+  {
+   "name": "Frac",
+   "arity": 0,
+   "expansion": "\\frac",
+   "category": "math",
+   "source": "none",
+   "justification": "No corpus preamble defines it; a classical-transcription convention kept for the DP/PG texts."
+  },
+  {
+   "name": "dint",
+   "arity": 0,
+   "expansion": "\\displaystyle\\int",
+   "category": "math",
+   "source": "none",
+   "justification": "No corpus preamble defines it; a classical-transcription convention kept for the DP/PG texts."
+  },
+  {
+   "name": "sqrtp",
+   "arity": 0,
+   "expansion": "\\sqrt",
+   "category": "math",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:334",
+   "justification": "Modernize=true (the default): \\sqrtp[#1]{#2} is \\sqrt[#1]{#2}, i.e. \\sqrt's own syntax, so it is an alias that keeps the optional index"
+  },
+  {
+   "name": "DELTA",
+   "arity": 0,
+   "expansion": "\\delta",
+   "category": "math",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:363",
+   "justification": "Modernize=false definition. NOTE: the default Modernize=true swaps it to \\epsilon (line 342); kept as \\delta because the Rust, Dart and Python implementations all agreed on it"
+  },
+  {
+   "name": "EPSILON",
+   "arity": 0,
+   "expansion": "\\epsilon",
+   "category": "math",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:364",
+   "justification": "Modernize=false definition. NOTE: the default Modernize=true swaps it to \\delta (line 343); kept as \\epsilon because all three implementations agreed on it"
+  },
+  {
+   "name": "arcsec",
+   "arity": 0,
+   "expansion": "\\operatorname{arcsec}",
+   "category": "math",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:786",
+   "justification": "Hardy maps it to \\ArcSec = \\DeclareMathOperator{arc\\,sec}; KaTeX has no \\DeclareMathOperator so the upright run \\operatorname is used (all three implementations agreed)"
+  },
+  {
+   "name": "arccsc",
+   "arity": 0,
+   "expansion": "\\operatorname{arccsc}",
+   "category": "math",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:786",
+   "justification": "Hardy maps it to \\ArcSec = \\DeclareMathOperator{arc\\,sec}; KaTeX has no \\DeclareMathOperator so the upright run \\operatorname is used (all three implementations agreed)"
+  },
+  {
+   "name": "arccot",
+   "arity": 0,
+   "expansion": "\\operatorname{arccot}",
+   "category": "math",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:786",
+   "justification": "Hardy maps it to \\ArcSec = \\DeclareMathOperator{arc\\,sec}; KaTeX has no \\DeclareMathOperator so the upright run \\operatorname is used (all three implementations agreed)"
+  },
+  {
+   "name": "sech",
+   "arity": 0,
+   "expansion": "\\operatorname{sech}",
+   "category": "math",
+   "source": "none",
+   "justification": "Standard operator absent from KaTeX's default table; no corpus preamble"
+  },
+  {
+   "name": "csch",
+   "arity": 0,
+   "expansion": "\\operatorname{csch}",
+   "category": "math",
+   "source": "none",
+   "justification": "Standard operator absent from KaTeX's default table; no corpus preamble"
+  },
+  {
+   "name": "arsinh",
+   "arity": 0,
+   "expansion": "\\operatorname{arsinh}",
+   "category": "math",
+   "source": "none",
+   "justification": "Standard operator absent from KaTeX's default table; no corpus preamble"
+  },
+  {
+   "name": "arcosh",
+   "arity": 0,
+   "expansion": "\\operatorname{arcosh}",
+   "category": "math",
+   "source": "none",
+   "justification": "Standard operator absent from KaTeX's default table; no corpus preamble"
+  },
+  {
+   "name": "artanh",
+   "arity": 0,
+   "expansion": "\\operatorname{artanh}",
+   "category": "math",
+   "source": "none",
+   "justification": "Standard operator absent from KaTeX's default table; no corpus preamble"
+  },
+  {
+   "name": "cotan",
+   "arity": 0,
+   "expansion": "\\cot",
+   "category": "math",
+   "source": "none",
+   "justification": "Alias for \\cot in older transcriptions; no corpus preamble"
+  },
+  {
+   "name": "Sum",
+   "arity": 0,
+   "expansion": "\\sum",
+   "category": "math",
+   "source": "none",
+   "justification": "No corpus preamble defines it; a classical-transcription convention kept for the DP/PG texts."
+  },
+  {
+   "name": "Prod",
+   "arity": 0,
+   "expansion": "\\prod",
+   "category": "math",
+   "source": "none",
+   "justification": "No corpus preamble defines it; a classical-transcription convention kept for the DP/PG texts."
+  },
+  {
+   "name": "Lim",
+   "arity": 0,
+   "expansion": "\\lim",
+   "category": "math",
+   "source": "none",
+   "justification": "No corpus preamble defines it; a classical-transcription convention kept for the DP/PG texts."
+  },
+  {
+   "name": "Log",
+   "arity": 0,
+   "expansion": "\\operatorname{Log}",
+   "category": "math",
+   "source": "none",
+   "justification": "A capitalized operator marks a principal value (Hardy's Log), so it stays capitalized and upright rather than folding into \\log"
+  },
+  {
+   "name": "Sin",
+   "arity": 0,
+   "expansion": "\\operatorname{Sin}",
+   "category": "math",
+   "source": "none",
+   "justification": "A capitalized operator marks a principal value (Hardy's Log), so it stays capitalized and upright rather than folding into \\sin"
+  },
+  {
+   "name": "Cos",
+   "arity": 0,
+   "expansion": "\\operatorname{Cos}",
+   "category": "math",
+   "source": "none",
+   "justification": "A capitalized operator marks a principal value (Hardy's Log), so it stays capitalized and upright rather than folding into \\cos"
+  },
+  {
+   "name": "Tan",
+   "arity": 0,
+   "expansion": "\\operatorname{Tan}",
+   "category": "math",
+   "source": "none",
+   "justification": "A capitalized operator marks a principal value (Hardy's Log), so it stays capitalized and upright rather than folding into \\tan"
+  },
+  {
+   "name": "Cot",
+   "arity": 0,
+   "expansion": "\\operatorname{Cot}",
+   "category": "math",
+   "source": "none",
+   "justification": "A capitalized operator marks a principal value (Hardy's Log), so it stays capitalized and upright rather than folding into \\cot"
+  },
+  {
+   "name": "Sec",
+   "arity": 0,
+   "expansion": "\\operatorname{Sec}",
+   "category": "math",
+   "source": "none",
+   "justification": "A capitalized operator marks a principal value (Hardy's Log), so it stays capitalized and upright rather than folding into \\sec"
+  },
+  {
+   "name": "Csc",
+   "arity": 0,
+   "expansion": "\\operatorname{Csc}",
+   "category": "math",
+   "source": "none",
+   "justification": "A capitalized operator marks a principal value (Hardy's Log), so it stays capitalized and upright rather than folding into \\csc"
+  },
+  {
+   "name": "Arcsin",
+   "arity": 0,
+   "expansion": "\\operatorname{arc\\,sin}",
+   "category": "math",
+   "source": "none",
+   "justification": "Capitalized principal-value arc function, rendered as 'arc sin' etc."
+  },
+  {
+   "name": "Arccos",
+   "arity": 0,
+   "expansion": "\\operatorname{arc\\,cos}",
+   "category": "math",
+   "source": "none",
+   "justification": "Capitalized principal-value arc function, rendered as 'arc sin' etc."
+  },
+  {
+   "name": "Arctan",
+   "arity": 0,
+   "expansion": "\\operatorname{arc\\,tan}",
+   "category": "math",
+   "source": "none",
+   "justification": "Capitalized principal-value arc function, rendered as 'arc sin' etc."
+  },
+  {
+   "name": "DPtypo",
+   "arity": 2,
+   "expansion": "#2",
+   "category": "editorial",
+   "source": "public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:718; public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:321; public_domain_textbooks/wentworth_1894_first_steps_algebra/36670-t.tex:411",
+   "justification": "\\newcommand{\\DPtypo}[2]{#2}: keeps the second (corrected) argument"
+  },
+  {
+   "name": "DPchg",
+   "arity": 2,
+   "expansion": "#2",
+   "category": "editorial",
+   "source": "public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:719; public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:327",
+   "justification": "\\newcommand{\\DPchg}[2]{#2}: keeps the second (corrected) argument. Hardy's Modernize=false variant keeps #1; the default is Modernize=true"
+  },
+  {
+   "name": "DPmod",
+   "arity": 2,
+   "expansion": "#2",
+   "category": "editorial",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:331",
+   "justification": "\\newcommand{\\DPmod}[2]{#2}: keeps the second (corrected) argument. Hardy's Modernize=false variant keeps #1; the default is Modernize=true"
+  },
+  {
+   "name": "Typo",
+   "arity": 2,
+   "expansion": "#2",
+   "category": "editorial",
+   "source": "public_domain_textbooks/demorgan_1831_study_of_mathematics/39088-t.tex:249; public_domain_textbooks/whitehead_1911_intro_to_mathematics/41568-t.tex:242",
+   "justification": "\\newcommand{\\Typo}[2]{#2}"
+  },
+  {
+   "name": "Chg",
+   "arity": 2,
+   "expansion": "#2",
+   "category": "editorial",
+   "source": "public_domain_textbooks/demorgan_1831_study_of_mathematics/39088-t.tex:252; public_domain_textbooks/whitehead_1911_intro_to_mathematics/41568-t.tex:245",
+   "justification": "\\newcommand{\\Chg}[2]{#2}"
+  },
+  {
+   "name": "Add",
+   "arity": 1,
+   "expansion": "#1",
+   "category": "editorial",
+   "optional": true,
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:328; public_domain_textbooks/demorgan_1831_study_of_mathematics/39088-t.tex:254; public_domain_textbooks/whitehead_1911_intro_to_mathematics/41568-t.tex:246; public_domain_textbooks/wentworth_1894_first_steps_algebra/36670-t.tex:412",
+   "justification": "Added text is kept: \\Add{#1} is #1 (Hardy Modernize=true) or \\Chg{}{#1} / \\DPtypo{}{#1}"
+  },
+  {
+   "name": "DPnote",
+   "arity": 1,
+   "expansion": "",
+   "category": "editorial",
+   "optional": true,
+   "source": "public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:720; public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:319",
+   "justification": "\\newcommand{\\DPnote}[1]{}: a transcriber's note that never renders"
+  },
+  {
+   "name": "DPPageSep",
+   "arity": 2,
+   "expansion": "",
+   "category": "editorial",
+   "source": "public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:680",
+   "justification": "\\DPPageSep{scan}{page} only emits a page label"
+  },
+  {
+   "name": "PageSep",
+   "arity": 1,
+   "expansion": "",
+   "category": "editorial",
+   "optional": true,
+   "source": "public_domain_textbooks/demorgan_1831_study_of_mathematics/39088-t.tex:478; public_domain_textbooks/whitehead_1911_intro_to_mathematics/41568-t.tex:437; public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:707",
+   "justification": "\\newcommand{\\PageSep}[1]{\\ignorespaces}: page-break marker"
+  },
+  {
+   "name": "Pagelabel",
+   "arity": 1,
+   "expansion": "",
+   "category": "editorial",
+   "optional": true,
+   "ratex": false,
+   "source": "public_domain_textbooks/demorgan_1831_study_of_mathematics/39088-t.tex:475; public_domain_textbooks/whitehead_1911_intro_to_mathematics/41568-t.tex:433; public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:682",
+   "justification": "Defines a \\label only; the optional [type] argument cannot be expressed as a text macro, so ratex does not register it"
+  },
+  {
+   "name": "PageLabel",
+   "arity": 1,
+   "expansion": "",
+   "category": "editorial",
+   "optional": true,
+   "ratex": false,
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:710",
+   "justification": "Defines a \\label only; has an optional argument (see Pagelabel)"
+  },
+  {
+   "name": "DPlabel",
+   "arity": 1,
+   "expansion": "",
+   "category": "editorial",
+   "source": "history_and_notations/rouse_ball_1908_history_and_recreations/26839-t.tex:1015",
+   "justification": "Anchor and \\label only; renders nothing"
+  },
+  {
+   "name": "ResetCols",
+   "arity": 1,
+   "expansion": "",
+   "category": "editorial",
+   "optional": true,
+   "ratex": false,
+   "source": "public_domain_textbooks/wentworth_1894_first_steps_algebra/36670-t.tex:343; public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:539",
+   "justification": "Resets the column count; renders nothing and takes an optional argument"
+  },
+  {
+   "name": "First",
+   "arity": 1,
+   "expansion": "\\textsc{#1}",
+   "plain": "#1",
+   "category": "prose",
+   "optional": true,
+   "source": "public_domain_textbooks/wentworth_1894_first_steps_algebra/36670-t.tex:408; public_domain_textbooks/demorgan_1831_study_of_mathematics/39088-t.tex:495; public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:657; public_domain_textbooks/thompson_1910_calculus_made_easy/33283-t.tex:734",
+   "justification": "\\newcommand{\\First}[1]{\\textsc{#1}}; text-only normalizers keep just the argument"
+  },
+  {
+   "name": "Inum",
+   "arity": 1,
+   "expansion": "\\textup{#1}",
+   "plain": "#1",
+   "category": "prose",
+   "optional": true,
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:756",
+   "justification": "\\newcommand{\\Inum}[1]{{\\upshape#1}}; text-only normalizers keep just the argument"
+  }
+ ]
+}

@@ -500,69 +500,91 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<Rendered,
 
 /// Built-in compatibility macros for Project Gutenberg / Distributed
 /// Proofreaders `.tex` corpora and classical trig/calculus notation. The
+/// table is `compat_macros.json` at the package root, shared with ManyMath's
+/// Dart normalizer and math-games' Python extractor; edit it there. The
 /// sub-expression box macros (`\ratexBox`, `\ratexHighlight`) are function
 /// macros registered alongside them (see the `boxes` module).
 ///
 /// Registered in the parser's `MacroExpander` only when referenced in
 /// `source` and not explicitly defined via `\newcommand`/`\def`, so standard
 /// LaTeX inputs pay zero overhead and preserve exact byte-offset spans.
-///
-/// Expansions follow the `\newcommand`s in the PG `.tex` preambles. Text macro
-/// arity is inferred from the longest `#1`, `#2`, ... run in the body, so a
-/// body that drops an argument must still mention it (`\@secondoftwo{#1}{#2}`
-/// rather than `#2`).
-const COMPAT_MACROS: &[(&str, &str)] = &[
-    // Distributed Proofreaders & classical textbook shorthands
-    ("\\ds", "\\displaystyle"),
-    ("\\efrac", "\\frac"),
-    ("\\Frac", "\\frac"),
-    ("\\dint", "\\displaystyle\\int"),
-    ("\\sqrtp", "\\sqrt"),
-    ("\\DELTA", "\\delta"),
-    ("\\EPSILON", "\\epsilon"),
-    // Inverse & hyperbolic trig functions absent from KaTeX's default op table
-    ("\\arcsec", "\\operatorname{arcsec}"),
-    ("\\arccsc", "\\operatorname{arccsc}"),
-    ("\\arccot", "\\operatorname{arccot}"),
-    ("\\sech", "\\operatorname{sech}"),
-    ("\\csch", "\\operatorname{csch}"),
-    ("\\arsinh", "\\operatorname{arsinh}"),
-    ("\\arcosh", "\\operatorname{arcosh}"),
-    ("\\artanh", "\\operatorname{artanh}"),
-    // Capitalized operator variants used in 19th/early-20th century TeX
-    // transcriptions. The capital marks a principal value (Hardy's Log), so it
-    // is kept rather than folded into \log, \sin, ...
-    ("\\Sum", "\\sum"),
-    ("\\Prod", "\\prod"),
-    ("\\Lim", "\\lim"),
-    ("\\Log", "\\operatorname{Log}"),
-    ("\\Sin", "\\operatorname{Sin}"),
-    ("\\Cos", "\\operatorname{Cos}"),
-    ("\\Tan", "\\operatorname{Tan}"),
-    ("\\Cot", "\\operatorname{Cot}"),
-    ("\\Sec", "\\operatorname{Sec}"),
-    ("\\Csc", "\\operatorname{Csc}"),
-    ("\\Arcsin", "\\operatorname{arc\\,sin}"),
-    ("\\Arccos", "\\operatorname{arc\\,cos}"),
-    ("\\Arctan", "\\operatorname{arc\\,tan}"),
-    // Distributed Proofreaders editorial markup: \DPtypo{original}{corrected},
-    // \DPchg and \DPmod likewise keep the second argument, \DPnote{...} is a
-    // transcriber's note that never renders.
-    ("\\DPtypo", "\\@secondoftwo{#1}{#2}"),
-    ("\\DPchg", "\\@secondoftwo{#1}{#2}"),
-    ("\\DPmod", "\\@secondoftwo{#1}{#2}"),
-    ("\\DPnote", "\\@firstoftwo{}{#1}"),
-    ("\\First", "\\textsc{#1}"),
-    ("\\Inum", "\\textup{#1}"),
-];
+const COMPAT_MACROS_JSON: &str = include_str!("../../compat_macros.json");
+
+struct CompatMacro {
+    /// Control sequence including the backslash, e.g. `\ds`.
+    name: String,
+    /// Text-macro body, padded so its arity is inferred correctly.
+    body: String,
+}
+
+#[derive(serde::Deserialize)]
+struct CompatTable {
+    macros: Vec<CompatEntry>,
+}
+
+#[derive(serde::Deserialize)]
+struct CompatEntry {
+    name: String,
+    arity: usize,
+    expansion: String,
+    #[serde(default = "default_true")]
+    ratex: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// The longest `#1`, `#2`, ... run in order of appearance, which is how a
+/// text macro's arity is inferred.
+fn inferred_arity(body: &str) -> usize {
+    let mut arity = 0;
+    let mut rest = body;
+    while let Some(idx) = rest.find('#') {
+        rest = &rest[idx + 1..];
+        if rest.as_bytes().first() == Some(&(b'1' + arity as u8)) {
+            arity += 1;
+        }
+    }
+    arity
+}
+
+/// Text macro arity is inferred from that run, so a body that drops an
+/// argument, or mentions them out of order, still has to mention every one in
+/// order. Such a body is wrapped as `\@secondoftwo{#1#2..}{body}`, which
+/// swallows the mentions and yields the body.
+fn text_macro_body(expansion: &str, arity: usize) -> String {
+    if arity == 0 || inferred_arity(expansion) == arity {
+        return expansion.to_owned();
+    }
+    let mentions: String = (1..=arity).map(|i| format!("#{i}")).collect();
+    format!("\\@secondoftwo{{{mentions}}}{{{expansion}}}")
+}
+
+fn compat_macros() -> &'static [CompatMacro] {
+    static TABLE: std::sync::OnceLock<Vec<CompatMacro>> = std::sync::OnceLock::new();
+    TABLE.get_or_init(|| {
+        let table: CompatTable =
+            serde_json::from_str(COMPAT_MACROS_JSON).expect("compat_macros.json is valid");
+        table
+            .macros
+            .into_iter()
+            .filter(|m| m.ratex)
+            .map(|m| CompatMacro {
+                name: format!("\\{}", m.name),
+                body: text_macro_body(&m.expansion, m.arity),
+            })
+            .collect()
+    })
+}
 
 fn register_compat_macros(parser: &mut Parser, source: &str) {
     if !source.contains('\\') {
         return;
     }
-    for &(name, expansion) in COMPAT_MACROS {
-        if contains_control_word(source, name) && !defines_command(source, name) {
-            parser.gullet.set_text_macro(name, expansion);
+    for entry in compat_macros() {
+        if contains_control_word(source, &entry.name) && !defines_command(source, &entry.name) {
+            parser.gullet.set_text_macro(&entry.name, &entry.body);
         }
     }
     for &(name, handler) in boxes::BOX_MACROS {
@@ -1171,6 +1193,34 @@ mod tests {
         assert_eq!(glyphs(r"\Sin x"), "Sinx");
         // A formula's own definition wins over the compat default.
         assert_eq!(glyphs(r"\newcommand{\DPtypo}[2]{#1} \DPtypo{a}{b}"), "a");
+    }
+
+    #[test]
+    fn compat_fixtures_paint_the_expected_glyphs() {
+        let fixtures: serde_json::Value =
+            serde_json::from_str(include_str!("../../compat_fixtures.json")).unwrap();
+        let mut checked = 0;
+        for fixture in fixtures["fixtures"].as_array().unwrap() {
+            if let Some(expected) = fixture["glyphs"].as_str() {
+                let input = fixture["input"].as_str().unwrap();
+                assert_eq!(glyphs(input), expected, "{}: {input}", fixture["id"]);
+                checked += 1;
+            }
+        }
+        assert!(checked > 10);
+    }
+
+    #[test]
+    fn compat_macros_table_is_consistent() {
+        let table: CompatTable = serde_json::from_str(COMPAT_MACROS_JSON).unwrap();
+        for m in &table.macros {
+            let body = text_macro_body(&m.expansion, m.arity);
+            assert_eq!(inferred_arity(&body), m.arity, "{}", m.name);
+        }
+        assert_eq!(
+            compat_macros().len(),
+            table.macros.iter().filter(|m| m.ratex).count()
+        );
     }
 
     fn display_list(latex: &str) -> serde_json::Value {
