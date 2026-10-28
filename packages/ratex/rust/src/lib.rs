@@ -56,7 +56,9 @@ mod svg;
 
 use boxes::SubtermBox;
 use ratex_layout::{layout, to_display_list, validate_layout, LayoutOptions};
-use ratex_parser::macro_expander::MacroDefinition;
+use ratex_lexer::token::Token;
+use ratex_parser::macro_expander::{MacroDefinition, MacroExpander};
+use ratex_parser::ParseResult;
 use ratex_parser::Parser;
 use ratex_types::color::Color;
 use ratex_types::display_item::{DisplayItem, DisplayList};
@@ -515,6 +517,27 @@ struct CompatMacro {
     name: String,
     /// Text-macro body, padded so its arity is inferred correctly.
     body: String,
+    /// Whether a `[..]` group may precede the arguments.
+    optional: bool,
+}
+
+/// Name of the text macro behind an `optional` compat macro, e.g.
+/// `\ratexOptFirst` for `\First`.
+fn optional_target(name: &str) -> String {
+    format!("\\ratexOpt{}", name.trim_start_matches('\\'))
+}
+
+/// `\ratexOptSkip\ratexOptX`: drops a `[..]` group (after any spaces) that
+/// follows the target `\ratexOptX`, then hands the target back so it reads its
+/// arguments. An `optional` compat macro `\X` is a text macro with that body.
+fn skip_optional_group(me: &mut MacroExpander) -> ParseResult<Vec<Token>> {
+    let target = me.pop_token();
+    me.consume_spaces();
+    if me.future().text == "[" {
+        me.pop_token();
+        me.consume_arg(Some(&["]"]))?;
+    }
+    Ok(vec![target])
 }
 
 #[derive(serde::Deserialize)]
@@ -529,6 +552,9 @@ struct CompatEntry {
     expansion: String,
     #[serde(default = "default_true")]
     ratex: bool,
+    /// A `[..]` group may precede the arguments and is dropped.
+    #[serde(default)]
+    optional: bool,
 }
 
 fn default_true() -> bool {
@@ -573,6 +599,7 @@ fn compat_macros() -> &'static [CompatMacro] {
             .map(|m| CompatMacro {
                 name: format!("\\{}", m.name),
                 body: text_macro_body(&m.expansion, m.arity),
+                optional: m.optional,
             })
             .collect()
     })
@@ -584,7 +611,20 @@ fn register_compat_macros(parser: &mut Parser, source: &str) {
     }
     for entry in compat_macros() {
         if contains_control_word(source, &entry.name) && !defines_command(source, &entry.name) {
-            parser.gullet.set_text_macro(&entry.name, &entry.body);
+            if entry.optional {
+                let target = optional_target(&entry.name);
+                parser.gullet.set_text_macro(&target, &entry.body);
+                parser.gullet.set_text_macro(
+                    &entry.name,
+                    &format!("\\ratexOptSkip{target}"),
+                );
+                parser.gullet.set_macro(
+                    "\\ratexOptSkip".to_owned(),
+                    MacroDefinition::Function(skip_optional_group),
+                );
+            } else {
+                parser.gullet.set_text_macro(&entry.name, &entry.body);
+            }
         }
     }
     for &(name, handler) in boxes::BOX_MACROS {
@@ -1194,6 +1234,16 @@ mod tests {
         assert_eq!(glyphs(r"\Sin x"), "Sinx");
         // A formula's own definition wins over the compat default.
         assert_eq!(glyphs(r"\newcommand{\DPtypo}[2]{#1} \DPtypo{a}{b}"), "a");
+    }
+
+    #[test]
+    fn optional_compat_macros_drop_the_bracket_group() {
+        assert_eq!(glyphs(r"x\DPnote[a]{b}y"), "xy");
+        assert_eq!(glyphs(r"\First[x]{Abc}"), "Abc");
+        assert_eq!(glyphs(r"\First [x]{Abc}"), "Abc");
+        assert_eq!(glyphs(r"\First[{]}x]{Abc}"), "Abc");
+        assert_eq!(glyphs(r"\First{Abc}"), "Abc");
+        assert_eq!(glyphs(r"\Add{[a]}"), "[a]");
     }
 
     #[test]

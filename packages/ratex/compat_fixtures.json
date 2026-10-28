@@ -189,7 +189,43 @@
    "id": "DPnote-optional",
    "mode": "math",
    "input": "x\\DPnote[1]{note}",
-   "normalized": "x"
+   "normalized": "x",
+   "glyphs": "x"
+  },
+  {
+   "id": "DPnote-optional-text",
+   "mode": "math",
+   "input": "x\\DPnote[a]{b}y",
+   "normalized": "xy",
+   "glyphs": "xy"
+  },
+  {
+   "id": "Add-optional",
+   "mode": "math",
+   "input": "x + \\Add[a]{y}",
+   "normalized": "x + y",
+   "glyphs": "x+y"
+  },
+  {
+   "id": "PageSep-optional",
+   "mode": "math",
+   "input": "a\\PageSep[i]{12}b",
+   "normalized": "ab",
+   "glyphs": "ab"
+  },
+  {
+   "id": "First-optional",
+   "mode": "math",
+   "input": "\\First[x]{C} + 1",
+   "normalized": "C + 1",
+   "glyphs": "C+1"
+  },
+  {
+   "id": "Inum-optional",
+   "mode": "math",
+   "input": "\\Inum[a]{1}",
+   "normalized": "1",
+   "glyphs": "1"
   },
   {
    "id": "DPPageSep",
