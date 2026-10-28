@@ -1188,7 +1188,8 @@ mod tests {
         assert_eq!(glyphs(r"\DPmod{x}{y} + 1"), "y+1");
         assert_eq!(glyphs(r"x\DPnote{a transcriber's note}"), "x");
         assert_eq!(glyphs(r"\efrac{1}{2}"), glyphs(r"\frac{1}{2}"));
-        assert_eq!(glyphs(r"\DELTA"), glyphs(r"\delta"));
+        assert_eq!(glyphs(r"\DELTA"), glyphs(r"\epsilon"));
+        assert_eq!(glyphs(r"\EPSILON"), glyphs(r"\delta"));
         assert_eq!(glyphs(r"\Log z"), "Logz");
         assert_eq!(glyphs(r"\Sin x"), "Sinx");
         // A formula's own definition wins over the compat default.

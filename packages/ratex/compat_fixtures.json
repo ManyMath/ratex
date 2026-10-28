@@ -56,8 +56,14 @@
    "id": "delta",
    "mode": "math",
    "input": "\\DELTA x + \\EPSILON",
-   "normalized": "\\delta x + \\epsilon",
-   "glyphs": "δx+ϵ"
+   "normalized": "\\epsilon x + \\delta",
+   "glyphs": "ϵx+δ"
+  },
+  {
+   "id": "MC-MS",
+   "mode": "math",
+   "input": "1\\MC{}000\\MS{}000",
+   "normalized": "1,{}000\\,{}000"
   },
   {
    "id": "arcsec",

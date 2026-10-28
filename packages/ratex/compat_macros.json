@@ -44,18 +44,34 @@
   {
    "name": "DELTA",
    "arity": 0,
-   "expansion": "\\delta",
+   "expansion": "\\epsilon",
    "category": "math",
-   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:363",
-   "justification": "Modernize=false definition. NOTE: the default Modernize=true swaps it to \\epsilon (line 342); kept as \\delta because the Rust, Dart and Python implementations all agreed on it"
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:342",
+   "justification": "Modernize=true (the default): \\newcommand{\\DELTA}{\\epsilon}. The Modernize=false branch (line 363) has \\delta"
   },
   {
    "name": "EPSILON",
    "arity": 0,
-   "expansion": "\\epsilon",
+   "expansion": "\\delta",
    "category": "math",
-   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:364",
-   "justification": "Modernize=false definition. NOTE: the default Modernize=true swaps it to \\delta (line 343); kept as \\epsilon because all three implementations agreed on it"
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:343",
+   "justification": "Modernize=true (the default): \\newcommand{\\EPSILON}{\\delta}. The Modernize=false branch (line 364) has \\epsilon"
+  },
+  {
+   "name": "MC",
+   "arity": 0,
+   "expansion": ",",
+   "category": "math",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:346",
+   "justification": "Modernize=true (the default): \\newcommand{\\MC}{,}, a math comma between digit groups (Modernize=false makes it empty)"
+  },
+  {
+   "name": "MS",
+   "arity": 0,
+   "expansion": "\\,",
+   "category": "math",
+   "source": "public_domain_textbooks/hardy_1908_pure_mathematics/38769-t.tex:347",
+   "justification": "Modernize=true (the default): \\newcommand{\\MS}{\\,}, a thin space in long numbers (Modernize=false makes it empty)"
   },
   {
    "name": "arcsec",
