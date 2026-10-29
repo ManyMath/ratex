@@ -20,6 +20,14 @@ if (positionals.length !== 1) {
   process.exit(2);
 }
 
+for (const option of ["max-bytes", "max-gzip-bytes"]) {
+  const value = values[option];
+  if (value !== undefined && !/^\d+$/.test(value)) {
+    console.error(`error: --${option} must be a non-negative integer, got '${value}'`);
+    process.exit(2);
+  }
+}
+
 const bytes = readFileSync(positionals[0]);
 const module = new WebAssembly.Module(bytes);
 const imports = WebAssembly.Module.imports(module);

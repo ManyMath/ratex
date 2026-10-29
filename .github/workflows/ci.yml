@@ -48,6 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BINARYEN_VERSION: '116'
+      BINARYEN_SHA256: c55b74f3109cdae97490faf089b0286d3bba926bb6ea5ed00c8c784fc53718fd
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -62,8 +63,10 @@ jobs:
       - name: Install binaryen (wasm-opt)
         run: |
           release="binaryen-version_${BINARYEN_VERSION}"
-          curl -sSfL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/${release}-x86_64-linux.tar.gz" \
-            | tar -xz -C "$RUNNER_TEMP"
+          archive="$RUNNER_TEMP/${release}-x86_64-linux.tar.gz"
+          curl -sSfL -o "$archive" "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/${release}-x86_64-linux.tar.gz"
+          echo "${BINARYEN_SHA256}  ${archive}" | sha256sum -c -
+          tar -xz -C "$RUNNER_TEMP" -f "$archive"
           echo "$RUNNER_TEMP/${release}/bin" >> "$GITHUB_PATH"
       - name: Build the wasm engine
         run: ./tool/build_wasm.sh
