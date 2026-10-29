@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: private-ci-${{ github.ref }}
   # Supersede stale PR runs, but let every push to main finish.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
