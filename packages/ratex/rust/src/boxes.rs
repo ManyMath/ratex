@@ -5,9 +5,10 @@
 //! changing how the body is laid out. RaTeX has no hook for that, so the
 //! geometry is smuggled through the engine:
 //!
-//! 1. The macros expand to `\htmlStyle{ratex-box:N}{body}`, where `N` indexes
-//!    a per-render registry holding the id, the body's source span and the
-//!    highlight color ([`BoxSource`]).
+//! 1. The macros expand to `\htmlStyle{ratex-box-NONCE:N}{body}`, where `N`
+//!    indexes a per-render registry holding the id, the body's source span and
+//!    the highlight color ([`BoxSource`]). `NONCE` is chosen per render (see
+//!    [`begin`]) so input cannot write a wrapper or a marker color itself.
 //! 2. [`mark`] rewrites each such `Html` node in the parse tree so its style
 //!    is a transparent background in a color unique to that node. In a math
 //!    list the wrapper is also split into one wrapper per child: the engine
@@ -37,11 +38,9 @@ pub(crate) const BOX_MACROS: &[(&str, FnMacroHandler)] = &[
     ("\\ratexHighlight", expand_highlight),
 ];
 
-/// Style prefix of the `\htmlStyle` wrapper the macros expand to.
-const STYLE_PREFIX: &str = "ratex-box:";
-
-/// Marker colors are `#7aKKKK00`: fully transparent, so a marker that ever
-/// escaped would paint nothing, with the instance number in green and blue.
+/// Marker colors are `#TTKKKK00`: fully transparent, so a marker that ever
+/// escaped would paint nothing, with the render's tag `TT` in red and the
+/// instance number in green and blue.
 const MAX_INSTANCES: usize = 1 << 16;
 
 /// One `\ratexBox`/`\ratexHighlight` expansion.
@@ -53,14 +52,55 @@ struct BoxSource {
     highlight: Option<Color>,
 }
 
+/// What tells this render's markers from anything the input can spell.
+#[derive(Clone, Default)]
+struct Nonce {
+    /// Style prefix of the `\htmlStyle` wrapper: `ratex-box-<hex>:`.
+    prefix: String,
+    /// Red byte of marker colors.
+    tag: u8,
+}
+
 thread_local! {
     // Renders never nest, and each runs start to finish on one thread.
     static SOURCES: RefCell<Vec<BoxSource>> = const { RefCell::new(Vec::new()) };
+    static NONCE: RefCell<Nonce> = RefCell::new(Nonce::default());
+    static RENDERS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
-/// Clears the registry before a parse.
-pub(crate) fn begin() {
+/// Clears the registry before a parse and picks this render's nonce: a hash
+/// of a render counter and `source`, retried until neither its hex digits nor
+/// its color tag (`#TT`) occur in `source`. Input that uses boxes and still
+/// mentions every tag is refused.
+pub(crate) fn begin(source: &str) -> Result<(), &'static str> {
+    use std::hash::{Hash, Hasher};
     SOURCES.with(|s| s.borrow_mut().clear());
+    if !source.contains("\\ratexBox") && !source.contains("\\ratexHighlight") {
+        return Ok(());
+    }
+    let counter = RENDERS.with(|c| {
+        c.set(c.get().wrapping_add(1));
+        c.get()
+    });
+    let lower = source.to_ascii_lowercase();
+    for attempt in 0u32..4096 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        (counter, attempt, source).hash(&mut hasher);
+        let h = hasher.finish();
+        let hex = format!("{h:016x}");
+        let tag = (h >> 24) as u8;
+        if lower.contains(&hex) || lower.contains(&format!("#{tag:02x}")) {
+            continue;
+        }
+        NONCE.with(|n| {
+            *n.borrow_mut() = Nonce {
+                prefix: format!("ratex-box-{hex}:"),
+                tag,
+            }
+        });
+        return Ok(());
+    }
+    Err("input is too close to the box marker format to mark its boxes")
 }
 
 fn expand_box(me: &mut MacroExpander) -> ParseResult<Vec<Token>> {
@@ -107,7 +147,8 @@ fn expand(me: &mut MacroExpander, highlight: Option<Color>) -> ParseResult<Vec<T
     tokens.extend(body.tokens);
     tokens.push(synthetic("{".into()));
     tokens.push(synthetic("}".into()));
-    tokens.push(synthetic(format!("{STYLE_PREFIX}{index}")));
+    let prefix = NONCE.with(|n| n.borrow().prefix.clone());
+    tokens.push(synthetic(format!("{prefix}{index}")));
     tokens.push(synthetic("{".into()));
     tokens.push(synthetic("\\htmlStyle".into()));
     Ok(tokens)
@@ -145,6 +186,7 @@ pub(crate) struct Marks {
     sources: Vec<BoxSource>,
     /// Source index of each marked `Html` node, by instance number.
     instances: Vec<usize>,
+    nonce: Nonce,
 }
 
 /// Takes the registry filled during the parse and marks every box wrapper in
@@ -157,21 +199,22 @@ pub(crate) fn mark(nodes: &mut Vec<ParseNode>) -> Option<Marks> {
     let mut marks = Marks {
         sources,
         instances: Vec::new(),
+        nonce: NONCE.with(|n| n.borrow().clone()),
     };
     marks.list(nodes);
     Some(marks)
 }
 
-fn marker_color(instance: usize) -> String {
-    format!("#7a{instance:04x}00")
+fn marker_color(tag: u8, instance: usize) -> String {
+    format!("#{tag:02x}{instance:04x}00")
 }
 
-fn marker_instance(color: &Color) -> Option<usize> {
+fn marker_instance(color: &Color, tag: u8) -> Option<usize> {
     let byte = |c: f32| {
         let v = (c * 255.0).round();
         ((c * 255.0 - v).abs() < 1e-3 && (0.0..=255.0).contains(&v)).then_some(v as usize)
     };
-    if color.a != 0.0 || byte(color.r)? != 0x7a {
+    if color.a != 0.0 || byte(color.r)? != tag as usize {
         return None;
     }
     Some(byte(color.g)? << 8 | byte(color.b)?)
@@ -185,7 +228,7 @@ impl Marks {
         };
         let index: usize = attributes
             .get("style")?
-            .strip_prefix(STYLE_PREFIX)?
+            .strip_prefix(self.nonce.prefix.as_str())?
             .parse()
             .ok()?;
         (index < self.sources.len()).then_some(index)
@@ -198,7 +241,7 @@ impl Marks {
         self.instances.push(source);
         Some(format!(
             "background-color:{}",
-            marker_color(self.instances.len() - 1)
+            marker_color(self.nonce.tag, self.instances.len() - 1)
         ))
     }
 
@@ -405,7 +448,7 @@ impl Marks {
         for item in items {
             let instance = match &item {
                 DisplayItem::Rect { color, .. } => {
-                    marker_instance(color).filter(|&k| k < self.instances.len())
+                    marker_instance(color, self.nonce.tag).filter(|&k| k < self.instances.len())
                 }
                 _ => None,
             };
@@ -441,6 +484,7 @@ impl Marks {
             }
         }
 
+        let definitions = definition_regions(source);
         let mut boxes = Vec::with_capacity(bounds.len());
         let mut out = Vec::with_capacity(kept.len());
         for (item, piece) in kept.into_iter().zip(first_piece) {
@@ -462,6 +506,7 @@ impl Marks {
             let body = source_box
                 .body
                 .filter(|&(from, to, braced)| typed_in(source, from, to, braced))
+                .filter(|&(from, to, _)| !definitions.iter().any(|&(a, b)| from < b && to > a))
                 .and_then(|(from, to, _)| span(from, to));
             boxes.push((
                 self.instances[k],
@@ -483,6 +528,91 @@ impl Marks {
         boxes.sort_by_key(|&(source, instance, _)| (source, instance));
         boxes.into_iter().map(|(_, _, b)| b).collect()
     }
+}
+
+/// Byte ranges of `\def`/`\newcommand`-style definitions in `source`, from
+/// the command to the end of its body. A box written inside a body has a span
+/// there, not where the macro is used.
+fn definition_regions(source: &str) -> Vec<(usize, usize)> {
+    const COMMANDS: [&str; 7] = [
+        "\\newcommand",
+        "\\renewcommand",
+        "\\providecommand",
+        "\\def",
+        "\\gdef",
+        "\\edef",
+        "\\xdef",
+    ];
+    let bytes = source.as_bytes();
+    let mut regions = Vec::new();
+    for command in COMMANDS {
+        let mut at = 0;
+        while let Some(found) = source[at..].find(command) {
+            let start = at + found;
+            let mut i = start + command.len();
+            at = i;
+            if bytes.get(i).is_some_and(u8::is_ascii_alphabetic) {
+                continue;
+            }
+            // Skip the name, parameters and `[n]` groups up to the body.
+            let skip_spaces = |mut i: usize| {
+                while bytes.get(i).is_some_and(u8::is_ascii_whitespace) {
+                    i += 1;
+                }
+                i
+            };
+            i = skip_spaces(i);
+            if bytes.get(i) == Some(&b'{') {
+                let after = group_end(bytes, i);
+                if source[i + 1..after.saturating_sub(1).max(i + 1)]
+                    .trim()
+                    .starts_with('\\')
+                {
+                    // \newcommand{\name}: the first group is the name.
+                    i = skip_spaces(after);
+                }
+            }
+            loop {
+                match bytes.get(i) {
+                    Some(b'[') => {
+                        while bytes.get(i).is_some_and(|&b| b != b']') {
+                            i += 1;
+                        }
+                        i = skip_spaces(i + 1);
+                    }
+                    Some(b'{') => break,
+                    Some(_) => i += 1,
+                    None => break,
+                }
+            }
+            if bytes.get(i) == Some(&b'{') {
+                regions.push((start, group_end(bytes, i)));
+            }
+        }
+    }
+    regions
+}
+
+/// End (exclusive) of the brace group starting at `bytes[open]`, or the end
+/// of the input when it never closes.
+fn group_end(bytes: &[u8], open: usize) -> usize {
+    let mut depth = 0usize;
+    let mut i = open;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\\' => i += 1,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return i + 1;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    bytes.len()
 }
 
 /// Whether `from..to` is an argument as typed in `source`: in range, and

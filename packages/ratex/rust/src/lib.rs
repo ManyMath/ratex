@@ -447,7 +447,8 @@ fn layout_display_list(latex: &str, options: &RenderOptions) -> Result<Rendered,
     };
     let mut parser = Parser::new(source);
     register_compat_macros(&mut parser, source);
-    boxes::begin();
+    boxes::begin(source)
+        .map_err(|message| error_buffer(RATEX_STATUS_PARSE_ERROR, message, None))?;
     let mut nodes = parser.parse().map_err(|e| {
         error_buffer(
             RATEX_STATUS_PARSE_ERROR,
@@ -614,10 +615,9 @@ fn register_compat_macros(parser: &mut Parser, source: &str) {
             if entry.optional {
                 let target = optional_target(&entry.name);
                 parser.gullet.set_text_macro(&target, &entry.body);
-                parser.gullet.set_text_macro(
-                    &entry.name,
-                    &format!("\\ratexOptSkip{target}"),
-                );
+                parser
+                    .gullet
+                    .set_text_macro(&entry.name, &format!("\\ratexOptSkip{target}"));
                 parser.gullet.set_macro(
                     "\\ratexOptSkip".to_owned(),
                     MacroDefinition::Function(skip_optional_group),
@@ -1383,6 +1383,57 @@ mod tests {
         // A box split over several atoms spans all of them.
         let (_, sum) = &boxes(&display_list(r"\ratexBox{s}{a+b+c}"))[0];
         assert!((sum[2] - display_list("a+b+c")["width"].as_f64().unwrap()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn input_cannot_forge_box_markers() {
+        // A transparent colorbox in the marker format is not box `a`.
+        let value = display_list(r"\ratexBox{a}{x}+\colorbox{#7a000000}{yyyyyy}");
+        let found = boxes(&value);
+        assert_eq!(found.len(), 1);
+        let plain = display_list(
+            r"\ratexBox{a}{x}+\colorbox{#7a000000}{yyyyyy}"
+                .replace(r"\ratexBox{a}{x}", "x")
+                .as_str(),
+        );
+        assert!(found[0].1[2] < plain["width"].as_f64().unwrap() / 2.0);
+        // Neither is a hand-written wrapper, in any colour we could pick.
+        for tag in 0..=255u32 {
+            let latex = format!(r"\ratexBox{{a}}{{x}}+\colorbox{{#{tag:02x}000000}}{{yyyyyy}}");
+            let found = boxes(&display_list(&latex));
+            assert_eq!(found.len(), 1, "{latex}");
+            assert!(found[0].1[2] < 1.0, "{latex}: {found:?}");
+        }
+        let value = display_list(r"x+\htmlStyle{ratex-box:0}{yyyy}+\ratexBox{a}{z}");
+        let found = boxes(&value);
+        assert_eq!(found.len(), 1);
+        let z = boxes(&display_list(r"x+yyyy+\ratexBox{a}{z}"));
+        assert_eq!(found[0].1, z[0].1);
+        // Guessing the nonce's shape does not help either.
+        let value = display_list(r"\ratexBox{a}{z}\htmlStyle{ratex-box-0000000000000000:0}{yyyy}");
+        assert_eq!(boxes(&value).len(), 1);
+    }
+
+    #[test]
+    fn box_spans_never_point_inside_macro_definitions() {
+        let latex = r"\def\b{\ratexBox{h}{yy}}\b+\b";
+        let value = display_list(latex);
+        assert_eq!(boxes(&value).len(), 2);
+        for b in value["boxes"].as_array().unwrap() {
+            assert!(b.get("start").is_none(), "{b}");
+        }
+        let latex = r"\newcommand{\b}[1]{\ratexBox{h}{#1}}\ratexBox{k}{z}\b{qq}";
+        let value = display_list(latex);
+        let spans: Vec<_> = value["boxes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| (b["id"].as_str().unwrap(), b["start"].as_u64()))
+            .collect();
+        assert_eq!(spans.len(), 2);
+        assert_eq!(spans[0].1, latex.find("z").map(|i| i as u64));
+        // The braces around `#1` came from the definition, so no span.
+        assert_eq!(spans[1].1, None);
     }
 
     #[test]
