@@ -1,0 +1,199 @@
+name: Private ratex validation
+
+on:
+  push:
+    branches: [main, "maintenance/**"]
+  pull_request:
+
+env:
+  RUSTUP_TOOLCHAIN: "1.89.0"
+  CARGO_HOME: ${{ runner.temp }}/ratex-cargo-${{ github.run_id }}-${{ github.job }}
+  DASH__SUPPRESS_ANALYTICS: "true"
+  FLUTTER_SUPPRESS_ANALYTICS: "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Supersede stale PR runs, but let every push to main finish.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  rust:
+    name: Rust (ratex_ffi)
+    runs-on: manymath-maintenance-linux-x64
+    defaults:
+      run:
+        working-directory: packages/ratex/rust
+    steps:
+      - name: Require the private primary forge
+        env:
+          PRIMARY_SERVER: ${{ github.server_url }}
+        working-directory: ${{ runner.temp }}
+        run: test "$PRIMARY_SERVER" = 'https://git.manymath.com'
+      - uses: actions/checkout@v4
+      - name: Check provisioned tools
+        working-directory: ${{ github.workspace }}
+        run: |
+          rustc --version
+          cargo --version
+          flutter --version
+          node --version
+          for target in wasm32-unknown-unknown aarch64-linux-android x86_64-pc-windows-msvc; do
+            rustup target list --installed | grep -Fx "$target"
+          done
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked
+      # The web build's configuration (see tool/build_wasm.sh).
+      - run: cargo clippy --locked --all-targets --no-default-features -- -D warnings
+      - run: cargo test --locked --no-default-features
+      - run: cargo check --locked --target wasm32-unknown-unknown
+      - run: cargo check --locked --target wasm32-unknown-unknown --no-default-features
+      - run: cargo check --locked --target aarch64-linux-android
+      # cargokit builds Windows with the MSVC target.
+      - run: cargo check --locked --target x86_64-pc-windows-msvc
+
+  wasm:
+    name: Wasm (ratex_ffi.wasm, JS package)
+    runs-on: manymath-maintenance-linux-x64
+    env:
+      BINARYEN_VERSION: '116'
+      BINARYEN_SHA256: c55b74f3109cdae97490faf089b0286d3bba926bb6ea5ed00c8c784fc53718fd
+    steps:
+      - name: Require the private primary forge
+        env:
+          PRIMARY_SERVER: ${{ github.server_url }}
+        working-directory: ${{ runner.temp }}
+        run: test "$PRIMARY_SERVER" = 'https://git.manymath.com'
+      - uses: actions/checkout@v4
+      - name: Check provisioned tools
+        working-directory: ${{ github.workspace }}
+        run: |
+          rustc --version
+          cargo --version
+          flutter --version
+          node --version
+          for target in wasm32-unknown-unknown aarch64-linux-android x86_64-pc-windows-msvc; do
+            rustup target list --installed | grep -Fx "$target"
+          done
+      - name: Install binaryen (wasm-opt)
+        run: |
+          release="binaryen-version_${BINARYEN_VERSION}"
+          archive="$RUNNER_TEMP/${release}-x86_64-linux.tar.gz"
+          curl -sSfL -o "$archive" "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/${release}-x86_64-linux.tar.gz"
+          echo "${BINARYEN_SHA256}  ${archive}" | sha256sum -c -
+          tar -xz -C "$RUNNER_TEMP" -f "$archive"
+          echo "$RUNNER_TEMP/${release}/bin" >> "$GITHUB_PATH"
+      - name: Build the wasm engine
+        run: ./tool/build_wasm.sh
+        env:
+          RATEX_REQUIRE_WASM_OPT: '1'
+      # No imports or wasm-bindgen exports, and a size budget with some
+      # headroom over the 2,675,024 bytes (1,066,408 gzipped) of Oct 2026.
+      - name: Check imports, exports, and size
+        run: >-
+          node tool/check_wasm.mjs packages/ratex_wasm/ratex_ffi.wasm
+          --max-bytes 2900000 --max-gzip-bytes 1150000
+      - name: Test the JS package
+        working-directory: packages/ratex_wasm
+        run: npm test
+        env:
+          # Fail, rather than skip, if the module is missing.
+          RATEX_REQUIRE_WASM: '1'
+
+  analyze-test:
+    name: Analyze and test (Dart/Flutter)
+    runs-on: manymath-maintenance-linux-x64
+    steps:
+      - name: Require the private primary forge
+        env:
+          PRIMARY_SERVER: ${{ github.server_url }}
+        working-directory: ${{ runner.temp }}
+        run: test "$PRIMARY_SERVER" = 'https://git.manymath.com'
+      - uses: actions/checkout@v4
+      - name: Check provisioned tools
+        working-directory: ${{ github.workspace }}
+        run: |
+          rustc --version
+          cargo --version
+          flutter --version
+          node --version
+          for target in wasm32-unknown-unknown aarch64-linux-android x86_64-pc-windows-msvc; do
+            rustup target list --installed | grep -Fx "$target"
+          done
+      - run: flutter pub get
+      - name: Signing preflight regressions
+        run: |
+          dart pub get --directory tool/signing
+          dart analyze tool/signing
+          dart --packages=tool/signing/.dart_tool/package_config.json tool/signing/check_signing_key_test.dart
+      - name: Check formatting
+        run: >-
+          dart format --output none --set-exit-if-changed
+          packages/ratex_dart packages/ratex/lib packages/ratex/test
+          packages/ratex/example/lib packages/ratex/example/test
+          apps/ratex_example/lib apps/ratex_example/test
+      - run: dart analyze packages/ratex_dart
+      - run: flutter analyze packages/ratex
+      - run: flutter analyze apps/ratex_example
+      - name: Build the native engine for tests
+        run: cargo build --locked --manifest-path packages/ratex/rust/Cargo.toml
+      - run: dart test packages/ratex_dart
+        env:
+          # Fail, rather than skip, the FFI tests if the library isn't found.
+          RATEX_REQUIRE_NATIVE: '1'
+      - run: flutter test packages/ratex/test
+      - run: flutter test packages/ratex/example
+      - run: flutter test apps/ratex_example/test
+      - name: Compile the pure-Dart web example
+        run: >-
+          dart compile js packages/ratex_dart/example/web/main.dart
+          -o "$RUNNER_TEMP/ratex_web.js"
+
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: manymath-maintenance-linux-x64
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux
+            app: packages/ratex/example
+            flags: --debug
+          - target: apk
+            app: packages/ratex/example
+            flags: --debug
+          - target: web
+            app: apps/ratex_example
+            flags: --release
+    steps:
+      - name: Require the private primary forge
+        env:
+          PRIMARY_SERVER: ${{ github.server_url }}
+        working-directory: ${{ runner.temp }}
+        run: test "$PRIMARY_SERVER" = 'https://git.manymath.com'
+      - uses: actions/checkout@v4
+      - name: Check provisioned tools
+        working-directory: ${{ github.workspace }}
+        run: |
+          rustc --version
+          cargo --version
+          flutter --version
+          node --version
+          for target in wasm32-unknown-unknown aarch64-linux-android x86_64-pc-windows-msvc; do
+            rustup target list --installed | grep -Fx "$target"
+          done
+      - name: Check Linux desktop build dependencies
+        if: matrix.target == 'linux'
+        run: |
+          command -v ninja clang cmake pkg-config
+          pkg-config --exists gtk+-3.0
+      - run: flutter pub get
+      - name: Build the web engine
+        if: matrix.target == 'web'
+        run: ./tool/build_wasm.sh
+      - name: Build ${{ matrix.target }}
+        working-directory: ${{ matrix.app }}
+        run: flutter build ${{ matrix.target }} ${{ matrix.flags }}

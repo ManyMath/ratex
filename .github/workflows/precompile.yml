@@ -13,11 +13,9 @@ name: Precompile binaries
 
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
 
 permissions:
-  contents: write
+  contents: read
 
 # Queue overlapping runs instead of letting them race to create the same
 # release. A run for an unchanged crate finds its assets uploaded and skips
@@ -35,16 +33,25 @@ env:
 
 jobs:
   release:
+    permissions:
+      contents: write
     name: Create release
     # Only the url_prefix repository can publish, so forks skip this job,
     # and with it every job that needs it.
-    if: github.repository == 'ManyMath/ratex'
+    if: github.event_name == 'workflow_dispatch' && github.server_url == 'https://github.com' && github.repository == 'ManyMath/ratex'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
       - run: dart pub get
         working-directory: ${{ env.BUILD_TOOL }}
+      - run: dart pub get --directory tool/signing
+      - name: Validate signing key before creating a release
+        env:
+          PRIVATE_KEY: ${{ secrets.CARGOKIT_PRIVATE_KEY }}
+        run: >-
+          dart --packages=tool/signing/.dart_tool/package_config.json
+          tool/signing/check_signing_key.dart "$CRATE_DIR/cargokit.yaml"
       # cargokit gets or creates the release without retrying, so parallel
       # build jobs would race to create it. Create it once here, named after
       # the crate hash cargokit itself computes.
@@ -76,6 +83,8 @@ jobs:
           fi
 
   precompile:
+    permissions:
+      contents: write
     name: Precompile (${{ matrix.name }})
     needs: release
     runs-on: ${{ matrix.os }}

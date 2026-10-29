@@ -24,12 +24,12 @@ esac
 built="$target_dir/wasm32-unknown-unknown/wasm-release/ratex_ffi.wasm"
 wasm="$target_dir/wasm32-unknown-unknown/wasm-release/ratex_ffi.opt.wasm"
 
-if ! rustup target list --installed --toolchain stable | grep -q wasm32-unknown-unknown; then
-  echo "Installing the wasm32-unknown-unknown target for the stable toolchain..."
-  rustup target add wasm32-unknown-unknown --toolchain stable
+if ! (cd "$crate" && rustup target list --installed) | grep -Fxq wasm32-unknown-unknown; then
+  echo "The selected Rust toolchain needs wasm32-unknown-unknown; provision it before building." >&2
+  exit 1
 fi
 
-(cd "$crate" && cargo build --profile wasm-release --no-default-features \
+(cd "$crate" && cargo build --locked --profile wasm-release --no-default-features \
   --target wasm32-unknown-unknown)
 
 if command -v wasm-opt >/dev/null; then

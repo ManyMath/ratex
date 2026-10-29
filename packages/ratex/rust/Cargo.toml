@@ -1,5 +1,6 @@
 [package]
 name = "ratex_ffi"
+publish = false # Private implementation crate bundled with Dart packages.
 version = "0.0.1"
 edition = "2021"
 description = "Portable C ABI around the RaTeX math typesetting engine (native + wasm32)."
